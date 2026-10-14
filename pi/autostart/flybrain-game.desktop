@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Fruit Fly Plays Pokemon (game)
+Comment=Starts the fly's game after login; play/launch.sh keeps it running
+Exec=/bin/bash -c '"$HOME/flybrain/play/autostart.sh"'
+X-GNOME-Autostart-enabled=true

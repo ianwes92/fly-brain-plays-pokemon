@@ -1,0 +1,8 @@
+[Unit]
+Description=flybrain: record the game's counters for the Threads post's 24h numbers
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/flybrain/play/threads_post.py sample
+StandardOutput=append:%h/flybrain/play/threads.log
+StandardError=append:%h/flybrain/play/threads.log

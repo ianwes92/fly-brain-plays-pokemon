@@ -1,0 +1,10 @@
+[Unit]
+Description=flybrain standing experiment battery: plan (data/experiments/STANDING_BATTERY_PREREG.md)
+
+[Service]
+Type=oneshot
+TimeoutStartSec=6h
+WorkingDirectory=%h/flybrain/data/experiments
+ExecStart=/usr/bin/python3 %h/flybrain/data/experiments/battery.py plan
+StandardOutput=append:%h/flybrain/data/experiments/battery.log
+StandardError=append:%h/flybrain/data/experiments/battery.log

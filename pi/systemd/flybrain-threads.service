@@ -1,0 +1,10 @@
+[Unit]
+Description=flybrain daily Threads post (stats / science / milestone, or skip)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/flybrain/play/threads_post.py run
+TimeoutStartSec=1800
+StandardOutput=append:%h/flybrain/play/threads.log
+StandardError=append:%h/flybrain/play/threads.log

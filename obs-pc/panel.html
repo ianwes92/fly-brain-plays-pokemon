@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flybrain Panel</title>
+<style>
+  :root{
+    --bg:#0b0b10; --panel:#13131a; --card:#17171f; --card2:#1b1b24;
+    --line:#262631; --line2:#32323f;
+    --fg:#ececf2; --dim:#9292a3; --faint:#636372;
+    --ok:#43b581; --warn:#f0a93b; --bad:#ec4a4f; --off:#4a4a57; --accent:#a06bff;
+    --twitch:#9146ff; --yt:#ff4e45;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--fg);padding:22px 24px 60px;
+       font:15px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1500px;margin:0 auto}
+
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  h1{font-size:19px;margin:0;letter-spacing:-.2px}
+  .pill{font-size:11px;padding:3px 9px;border-radius:99px;font-weight:600;letter-spacing:.3px}
+  .pill.ok{background:rgba(67,181,129,.13);color:var(--ok)}
+  .pill.warn{background:rgba(240,169,59,.13);color:var(--warn)}
+  .pill.bad{background:rgba(236,74,79,.14);color:var(--bad)}
+  .stamp{color:var(--faint);font-size:12px;margin-left:auto}
+
+  /* hero stats */
+  .hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-bottom:20px}
+  .stat{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);
+        border-radius:12px;padding:13px 15px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--dim);
+           display:flex;align-items:center;gap:6px}
+  .stat .v{font-size:25px;font-weight:650;margin-top:5px;font-variant-numeric:tabular-nums;
+           letter-spacing:-.5px}
+  .stat .s{font-size:12px;color:var(--faint);margin-top:1px}
+  .swatch{width:8px;height:8px;border-radius:2px;flex:none}
+
+  nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .tab{padding:9px 16px;cursor:pointer;color:var(--dim);font-size:14px;font-weight:500;
+       border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s}
+  .tab:hover{color:var(--fg)}
+  .tab.on{color:var(--fg);border-bottom-color:var(--accent)}
+
+  .links{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .lnk{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 13px;
+       font-size:13px;color:var(--fg);text-decoration:none;transition:border-color .12s,background .12s}
+  .lnk:hover{border-color:var(--line2);background:var(--card2)}
+
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:1.3px;color:var(--dim);
+     margin:24px 0 9px;font-weight:600}
+  h2:first-child{margin-top:0}
+
+  .checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,560px),1fr));gap:8px}
+  .check{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--off);
+         border-radius:10px;padding:11px 14px;transition:border-color .15s;min-width:0}
+  .check .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--off)}
+  .check.ok .dot{background:var(--ok)} .check.warn .dot{background:var(--warn)}
+  .check.bad .dot{background:var(--bad)} .check.unknown .dot{background:var(--accent)}
+  .check.bad,.check.warn,.check.unknown{grid-column:1/-1}
+  .check.ok{border-left-color:var(--ok)}
+  .check.warn{border-left-color:var(--warn)}
+  .check.bad{border-left-color:var(--bad)}
+  .check.unknown{border-left-color:var(--accent)}
+  .check:hover{border-color:var(--line2)}
+  .crow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .cname{font-weight:650;font-size:14px;display:flex;align-items:center;gap:8px;min-width:96px}
+  .cval{flex:1;font-variant-numeric:tabular-nums;min-width:160px;font-size:14px}
+  .cex{color:var(--faint);font-size:11.5px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cmeans{color:var(--faint);font-size:12px;margin-top:3px}
+  .cfix{font-size:12.5px;margin-top:9px;padding:9px 12px;border-radius:8px;line-height:1.5;
+        background:rgba(240,169,59,.07);border:1px solid rgba(240,169,59,.22);color:#f3dcb4}
+  .cfix.bad{background:rgba(236,74,79,.07);border-color:rgba(236,74,79,.25);color:#f5cccd}
+
+  button{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:9px;
+         padding:9px 15px;font:inherit;font-size:13px;cursor:pointer;
+         transition:border-color .12s,background .12s}
+  button:hover:not(:disabled){border-color:var(--line2);background:var(--card2)}
+  button:active:not(:disabled){transform:translateY(1px)}
+  button:disabled{opacity:.32;cursor:not-allowed}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pad{display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:6px}
+  .pad button{padding:0;font-size:17px}
+  .ab button{width:48px;height:48px;border-radius:50%;font-weight:700;padding:0}
+  #pleasure{border-color:rgba(67,181,129,.45)}
+  #pleasure:hover:not(:disabled){border-color:var(--ok);background:rgba(67,181,129,.08)}
+  #pain{border-color:rgba(236,74,79,.45)}
+  #pain:hover:not(:disabled){border-color:var(--bad);background:rgba(236,74,79,.08)}
+  .hint{color:var(--dim);font-size:12.5px;margin-top:9px;line-height:1.55;max-width:760px}
+  #msg,#ctlmsg{color:var(--dim);font-size:12.5px;min-height:17px;margin-top:9px;
+               font-variant-numeric:tabular-nums}
+
+  .bars{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .brow{display:flex;gap:12px;align-items:center;margin:5px 0}
+  .bname{min-width:94px;font-weight:600;font-size:13.5px}
+  .btrack{flex:1;height:8px;background:#23232e;border-radius:5px;overflow:hidden}
+  .bfill{display:block;height:100%;border-radius:5px}
+  .bnote{color:var(--dim);font-size:12px;min-width:168px;text-align:right;
+         font-variant-numeric:tabular-nums}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:15px 17px}
+  .chart h3{font-size:14px;margin:0 0 3px;font-weight:650}
+  .chart p{color:var(--dim);font-size:12px;margin:0 0 11px;line-height:1.5}
+  .big{font-size:26px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+  .unit{font-size:12px;color:var(--dim);font-weight:400;letter-spacing:0}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:4px}
+  td{padding:6px 0;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:none}
+  td:last-child{text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+
+  /* charts */
+  .cw{position:relative;margin:6px 0 2px;padding-left:38px;touch-action:pan-y}
+  .cw svg{display:block;width:100%;overflow:visible}
+  .ylab{position:absolute;left:0;width:34px;text-align:right;font-size:10.5px;color:var(--faint);
+        transform:translateY(-50%);font-variant-numeric:tabular-nums}
+  .xlab{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);
+        margin:3px 0 0 38px;font-variant-numeric:tabular-nums}
+  .tip{position:absolute;top:0;pointer-events:none;background:#0d0d13ee;border:1px solid var(--line2);
+       border-radius:7px;padding:5px 8px;font-size:11.5px;white-space:nowrap;display:none;z-index:2;
+       font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--dim);margin:2px 0 4px}
+  .legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px}
+  .kpi .n{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .kpi .l{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.8px}
+  .wide{grid-column:1/-1}
+  .tk{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+  .tkr{display:grid;grid-template-columns:minmax(120px,220px) 1fr 64px;grid-template-areas:"lbl bar n";
+       gap:4px 12px;align-items:center}
+  .tkr .lbl{grid-area:lbl} .tkr .bar{grid-area:bar} .tkr .n{grid-area:n}
+  .tkr .chips{grid-column:1/-1}
+  .tk .lbl{font-size:12.5px}
+  .vrow{display:grid;grid-template-columns:minmax(110px,170px) 70px 90px 1fr auto;gap:4px 12px;align-items:center;
+        padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .vrow:last-child{border-bottom:none}
+  .vrow .who{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vrow .num{font-variant-numeric:tabular-nums;color:var(--dim)}
+  .vbar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:#23232e}
+  .vhead{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--line2)}
+  @media (max-width:640px){ .vrow{grid-template-columns:1fr auto;grid-template-areas:"who n" "acc stim" "bar bar" "fl fl"}
+    .vrow .who{grid-area:who} .vrow .n1{grid-area:n} .vrow .n2{grid-area:acc} .vrow .n3{grid-area:stim;text-align:right}
+    .vrow .vbar{grid-area:bar} .vrow .fl{grid-area:fl} .vhead{display:none} }
+  .inactive{font-size:11.5px;color:var(--faint);margin-top:8px;line-height:1.5}
+  .tk .bar{height:10px;background:#23232e;border-radius:5px;overflow:hidden}
+  .tk .bar span{display:block;height:100%;background:var(--accent);border-radius:5px}
+  .tk .n{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;text-align:right}
+  .chips{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin:-2px 0 6px}
+  .chip{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--dim)}
+  .chip b{font-variant-numeric:tabular-nums}
+  /* phone: label + value on one line, the bar right under them */
+  @media (max-width:640px){ .tkr{grid-template-columns:1fr auto;grid-template-areas:"lbl n" "bar bar";gap:3px 10px}
+                            .tk{gap:11px} }
+  #sci{grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))}
+  /* health timeline */
+  .tl{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+  .tlrow{display:flex;align-items:center;gap:10px;margin:3px 0}
+  .tlname{width:82px;font-size:12.5px;font-weight:600;flex:none}
+  .tlstrip{flex:1;display:flex;height:14px;border-radius:4px;overflow:hidden;background:#1d1d26;gap:1px}
+  .tlstrip span{flex:1;cursor:pointer}
+  .tlstrip span:hover{filter:brightness(1.4)}
+  .tlpct{width:44px;text-align:right;font-size:12px;color:var(--dim);flex:none;font-variant-numeric:tabular-nums}
+  .tlaxis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin:6px 54px 0 92px}
+  #tlinfo{font-size:12px;color:var(--dim);min-height:18px;margin-top:8px}
+  .tlkey{display:flex;gap:12px;font-size:11.5px;color:var(--faint);margin-top:4px}
+  .tlkey i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+  .drive{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .pad-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;
+            display:flex;flex-direction:column;gap:16px;flex:1 1 420px;max-width:560px}
+  .pad-card .row{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .pad-card h3{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);margin:0;font-weight:600}
+  .vw .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+          color:var(--faint);font-size:13px}
+  #live:not([src]),#live[src=""]{visibility:hidden}
+  .screen{flex:1 1 480px;max-width:760px;min-width:0}
+  .screen .vw{position:relative;aspect-ratio:16/9;background:#000;border:1px solid var(--line);
+              border-radius:10px;overflow:hidden}
+  .screen img,.screen iframe{position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:contain}
+  .screen .src{display:flex;gap:6px;margin-top:7px;align-items:center;font-size:12px;color:var(--dim)}
+  .screen .src button{padding:4px 10px;font-size:12px}
+  .screen .src button.on,.hrs.on{border-color:var(--accent);background:var(--card2)}
+  #stopbtn.armed{border-color:var(--bad);color:#f5cccd}
+  #livestate{margin-left:auto;font-variant-numeric:tabular-nums}
+  .pad button,.ab button,#pleasure,#pain{touch-action:manipulation;-webkit-user-select:none;
+      user-select:none;-webkit-touch-callout:none}
+  /* phone */
+  @media (max-width:640px){
+    body{padding:14px 13px 50px}
+    h1{font-size:17px}
+    .stamp{margin-left:0;width:100%}
+    .hero{grid-template-columns:repeat(2,1fr);gap:8px}
+    .stat{padding:11px 12px}
+    .stat .v{font-size:21px}
+    .cex{display:none}                 /* secondary detail, not worth the width */
+    .cname{min-width:0}
+    .cval{min-width:0;flex-basis:100%}
+    .bnote{min-width:0;font-size:11px}
+    .bname{min-width:68px;font-size:12.5px}
+    .grid{grid-template-columns:1fr}
+    .tlname{width:62px;font-size:11.5px}
+    .tlpct{width:34px;font-size:11px}
+    .tlaxis{margin:6px 44px 0 72px}
+    /* bigger touch targets for driving the fly on a phone */
+    .pad{grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,62px)}
+    .pad button{font-size:21px}
+    .ab button{width:62px;height:62px}
+    button{padding:11px 16px}
+    .acts{gap:10px}
+    /* Drive on a phone: picture full width, controls straight under it */
+    .drive{gap:12px}
+    .screen{flex:1 1 100%}
+    .drive > .acts{width:100%;justify-content:space-between;gap:10px}
+    #drive h2{margin-top:16px}
+  }
+
+  /* ---- tooltips: short labels on the page, the explanation on hover/tap ---- */
+  [data-tip]{cursor:help}
+  .info{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;
+        border:1px solid var(--line2);color:var(--faint);font-size:10px;font-weight:700;margin-left:6px;
+        vertical-align:1px;font-style:normal;transition:color .12s,border-color .12s}
+  [data-tip]:hover .info{color:var(--fg);border-color:var(--accent)}
+  #htip{position:fixed;z-index:50;max-width:340px;background:#101018f2;border:1px solid var(--line2);
+        border-radius:9px;padding:8px 11px;font-size:12.5px;line-height:1.5;color:var(--fg);pointer-events:none;
+        box-shadow:0 8px 28px #0008;opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}
+  #htip.on{opacity:1;transform:none}
+  #htip b{color:#fff}
+
+  /* ---- status: one glanceable strip ---- */
+  .hs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:6px}
+  .hsi{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+       padding:9px 12px;min-width:0;transition:border-color .15s,background .15s}
+  .hsi:hover{border-color:var(--line2);background:var(--card2)}
+  .hsi .dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--off)}
+  .hsi.ok .dot{background:var(--ok);box-shadow:0 0 0 3px rgba(67,181,129,.12)}
+  .hsi.warn .dot{background:var(--warn);box-shadow:0 0 0 3px rgba(240,169,59,.15)}
+  .hsi.bad .dot{background:var(--bad);box-shadow:0 0 0 3px rgba(236,74,79,.18);animation:blink 1.2s infinite}
+  .hsi.unknown .dot{background:var(--accent)}
+  .hsi.warn{border-color:rgba(240,169,59,.35)} .hsi.bad{border-color:rgba(236,74,79,.45)}
+  .hsi .nm{font-size:12.5px;color:var(--dim);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hsi .vl{font-size:14px;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+  @keyframes blink{50%{opacity:.35}}
+  .probs{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+
+  /* ---- live brain card ---- */
+  .live{background:radial-gradient(120% 140% at 0% 0%,#1d1830 0%,var(--card) 55%);border:1px solid var(--line);
+        border-radius:14px;padding:16px 18px;margin-bottom:12px}
+  .live h3{font-size:14px;margin:0;font-weight:650;display:flex;align-items:center;gap:8px}
+  .live .pulse{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(67,181,129,.6)}
+  .live .pulse.beat{animation:beat .6s ease-out}
+  @keyframes beat{0%{box-shadow:0 0 0 0 rgba(67,181,129,.7)}100%{box-shadow:0 0 0 9px rgba(67,181,129,0)}}
+  .live .top{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin:10px 0 14px}
+  .live .thought{flex:1 1 260px;font-size:15px;font-weight:600;min-height:22px;transition:opacity .25s}
+  .live .thought.fade{opacity:.25}
+  .live .meta{font-size:12px;color:var(--dim);display:flex;gap:12px;flex-wrap:wrap}
+  .lgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}
+  .lsub{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--faint);margin-bottom:6px}
+  .rg{display:grid;grid-template-columns:96px 1fr 46px;gap:9px;align-items:center;margin:5px 0}
+  .rg .l{font-size:12.5px;color:var(--dim)}
+  .rg .t{height:9px;background:#1f1f2a;border-radius:5px;overflow:hidden;position:relative}
+  .rg .f{position:absolute;inset:0 auto 0 0;border-radius:5px;transition:width .45s cubic-bezier(.3,.7,.3,1),filter .45s}
+  .rg .n{font-size:11.5px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+  .ss{display:grid;grid-template-columns:1fr 70px 1fr;gap:8px;align-items:center;margin:6px 0}
+  .ss .c{font-size:12px;color:var(--dim);text-align:center}
+  .ss .t{height:9px;background:#1f1f2a;border-radius:5px;overflow:hidden;position:relative}
+  .ss .t .f{position:absolute;top:0;bottom:0;border-radius:5px;transition:width .45s cubic-bezier(.3,.7,.3,1)}
+  .ss .t.L .f{right:0} .ss .t.R .f{left:0}
+  .mood{position:relative;height:10px;border-radius:5px;margin:8px 0 3px;
+        background:linear-gradient(90deg,#ec4a4f 0%,#f0a93b 30%,#4a4a57 50%,#7fd1a6 70%,#43b581 100%)}
+  .mood .needle{position:absolute;top:-5px;width:3px;height:20px;background:#fff;border-radius:2px;
+        box-shadow:0 0 8px #fff8;transition:left .6s cubic-bezier(.3,.7,.3,1)}
+  .mood-l{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+  .keys{display:flex;gap:6px;margin-top:10px}
+  .keys span{flex:1;text-align:center;padding:6px 0;border-radius:8px;border:1px solid var(--line);font-size:12px;
+             color:var(--faint);font-weight:650;transition:background .5s,color .5s,border-color .5s}
+  .keys span.hit{background:rgba(160,107,255,.25);color:#fff;border-color:var(--accent);transition:none}
+  .keys span.cur{border-color:var(--ok);color:var(--fg)}
+  .spark{display:block;width:100%;height:36px;margin-top:8px}
+  .tkr.w3{grid-template-columns:minmax(110px,170px) 1fr 132px}
+  .tkr.s3{grid-template-columns:110px 1fr 40px}
+  @media (max-width:640px){
+    .tkr.w3,.tkr.s3{grid-template-columns:1fr auto;grid-template-areas:"lbl n" "bar bar"}
+    .rg{grid-template-columns:84px 1fr 40px}
+  }
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>Flybrain Panel</h1>
+  <span id="overall" class="pill ok">checking…</span>
+  <span class="stamp">updated <span id="at">—</span></span>
+</header>
+
+<div class="hero" id="hero"></div>
+
+<div class="links">
+  <a class="lnk" id="lnk-tw" href="#" target="_blank" rel="noopener">Twitch Stream Manager ↗</a>
+  <a class="lnk" id="lnk-yt" href="#" target="_blank" rel="noopener">YouTube Live Control Room ↗</a>
+  <a class="lnk" id="lnk-ig" href="#" target="_blank" rel="noopener">Instagram ↗</a>
+</div>
+
+<nav>
+  <div class="tab on" data-t="status">Status</div>
+  <div class="tab" data-t="drive">Drive</div>
+  <div class="tab" data-t="science">Science</div>
+</nav>
+
+<div id="status">
+  <div id="groups"><div class="check">reading checks…</div></div>
+
+  <h2>Controls</h2>
+  <div class="acts">
+    <button onclick="act('stream_start')" data-tip="Start streaming from OBS to Twitch and YouTube.">Start stream</button>
+    <button id="stopbtn" onclick="stopStream()" data-tip="Takes the show off air. Needs a second tap within 4 s.">Stop stream</button>
+    <button onclick="act('clip')" data-tip="Saves the <b>60 seconds that just happened</b>: press right after something good. Files go to your OBS recordings folder.">Save last 60s clip</button>
+  </div>
+  <div id="msg"></div>
+
+  <h2>Last 24 hours</h2>
+  <div class="grid">
+    <div class="chart"><h3 data-tip="Concurrent viewers, averaged per 15 minutes. Gaps on YouTube are times it hid the count.">Audience<i class="info">i</i></h3><div id="aud"></div></div>
+    <div class="chart"><h3 data-tip="Lowest supply voltage in each 15 minutes. Below the amber line the supply is too weak; below red the Pi throttles.">Pi power<i class="info">i</i></h3><div id="pwr"></div></div>
+  </div>
+  <h2 data-tip="Each block is 15 minutes. Green healthy, amber warning, red failing, purple couldn't check, grey off, dark no data. The % is time healthy.">Health, last 24 h<i class="info">i</i></h2>
+  <div class="tl"><div id="tl">collecting…</div>
+    <div id="tlinfo">Hover a block for what happened then.</div>
+  </div>
+</div>
+
+<div id="drive" style="display:none">
+  <div class="drive">
+  <div class="screen">
+    <div class="vw"><div class="ph" id="livephold">connecting to OBS…</div><img id="live" alt=""><iframe id="twitch" style="display:none"
+      allowfullscreen></iframe></div>
+    <div class="src">
+      <button id="srclive" class="on" onclick="setSrc('live')">Live (no lag)</button>
+      <button id="srctw" onclick="setSrc('twitch')" title="What viewers see, several seconds behind">Twitch</button>
+      <span id="livestate"></span>
+    </div>
+  </div>
+  <div class="pad-card">
+    <h3 data-tip="<b>Buttons = you typing in chat.</b> Each press shows on stream as your channel name + LEFT and nudges the fly for 0.7 s while it and chat keep playing. Same pace limit as chat; refused during paid steering; doesn't train the fly.">Controller<i class="info">i</i></h3>
+    <div class="row">
+      <div class="pad">
+        <span></span><button disabled data-k="up">▲</button><span></span>
+        <button disabled data-k="left">◀</button><span></span><button disabled data-k="right">▶</button>
+        <span></span><button disabled data-k="down">▼</button><span></span>
+      </div>
+      <div class="acts ab">
+        <button disabled data-k="a">A</button>
+        <button disabled data-k="b">B</button>
+        <button disabled data-k="start" style="width:auto;border-radius:9px;padding:0 17px">START</button>
+      </div>
+    </div>
+    <div>
+      <div class="acts">
+        <button id="take" onclick="take()" disabled data-tip="Pauses the fly and chat (15 min max) and unlocks START. Presses log as “streamer”.">Take control</button>
+        <button id="release" onclick="release()" disabled>Release</button>
+      </div>
+      <div id="heldstate" class="hint" style="margin-top:7px"></div>
+    </div>
+    <h3 data-tip="Real dopamine, same as chat's !pain / !pleasure: rewards or punishes whatever the fly is smelling right now. Max one per second.">Training<i class="info">i</i></h3>
+    <div class="acts">
+      <button id="pleasure" onclick="stim('pleasure')" disabled>PLEASURE</button>
+      <button id="pain" onclick="stim('pain')" disabled>PAIN</button>
+    </div>
+    <div id="ctlmsg" style="margin-top:0"></div>
+  </div>
+  </div>
+  <div class="hint" style="max-width:none">Pad = you typing in chat · Take control = you drive alone · Pleasure/Pain train the fly
+    <span id="kbhint"> · keys: arrows, Z = A, X = B, Enter = START</span></div>
+  <div id="liveslot-drive" style="margin-top:14px"></div>
+</div>
+
+<div id="science" style="display:none">
+  <div id="liveslot-science"></div>
+  <div class="acts" style="margin-bottom:16px" data-tip="Chart window. Samples are taken once a minute; counters are shown as rates. Only the current run is ever shown."><span id="scirange" style="display:none"></span>
+    <button class="hrs on" data-h="6" onclick="setHours(6)">6 hours</button>
+    <button class="hrs" data-h="24" onclick="setHours(24)">24 hours</button>
+    <button class="hrs" data-h="72" onclick="setHours(72)">3 days</button>
+  </div>
+  <div id="sci" class="grid"></div>
+</div>
+
+</div>
+<script>
+// site settings (channel names) from the panel's config.json
+let SITE = {};
+fetch('/api/config').then(r => r.json()).then(c => {
+  SITE = c;
+  const set = (id, url) => { const a = document.getElementById(id); if (url) a.href = url; else a.style.display = 'none'; };
+  set('lnk-tw', c.twitch_channel && 'https://dashboard.twitch.tv/u/' + c.twitch_channel + '/stream-manager');
+  set('lnk-yt', c.youtube_channel_id && 'https://studio.youtube.com/channel/' + c.youtube_channel_id + '/livestreaming');
+  set('lnk-ig', c.instagram && 'https://www.instagram.com/' + c.instagram + '/');
+}).catch(() => {});
+const PANES = ['status', 'drive', 'science'];
+function showTab(name){
+  if (!PANES.includes(name)) name = 'status';
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.dataset.t === name));
+  PANES.forEach(p => document.getElementById(p).style.display = p === name ? '' : 'none');
+  try { localStorage.setItem('flytab', name); } catch(e) {}
+  if (history.replaceState) history.replaceState(null, '', location.pathname + '#' + name);
+  if (name === 'science') science();
+  if (name === 'drive' && typeof nextFrame === 'function') nextFrame();
+  if (typeof livePoll === 'function' && (name === 'drive' || name === 'science')) livePoll();
+}
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => showTab(t.dataset.t));
+
+const GROUPS = {stream:'Stream', game:'The fly', tools:'Tools &amp; health'};
+let held = false, hasToken = false, stimReady = false, chatReady = false;
+const find = (cs,n) => cs.find(c => c.name === n) || {};
+const grab = (s,re) => { const m = (s||'').match(re); return m ? m[1] : null; };
+
+function hero(cs){
+  const tw = find(cs,'Twitch'), yt = find(cs,'YouTube'), obs = find(cs,'OBS'),
+        pr = find(cs,'Progress'), ig = find(cs,'Instagram');
+  const twV = tw.state === 'ok' ? (grab(tw.detail,/(\d+)\s*viewer/) ?? '0') : '—';
+  /* null+age = hidden by YouTube, null+no age = not read yet, 0 = a real zero.
+     Showing any of those as "0" would be stating something we don't know. */
+  const ytHidden = yt.viewers == null && yt.viewers_age_s != null;
+  const ytV = yt.state !== 'ok' ? '—' : (yt.viewers != null ? yt.viewers : (ytHidden ? '—' : '?'));
+  const ytSub = yt.state === 'unknown' ? 'check failed' : yt.state === 'warn' ? 'not live yet' : yt.state !== 'ok' ? 'offline'
+              : yt.viewers != null ? (yt.viewers_age_s >= 60
+                  ? Math.round(yt.viewers_age_s/60)+'m ago' : 'live now')
+              : ytHidden ? 'hidden by YouTube' : 'not read yet';
+  const up  = grab(obs.detail,/up (\d+) min/);
+  const upS = up == null ? '—' : (up >= 60 ? (up/60).toFixed(1)+'h' : up+'m');
+  const furthest = grab(pr.detail,/furthest map (\d+)/) ?? '—';
+  const areas = grab(pr.detail,/(\d+) areas? explored/) ?? '—';
+  const quota = grab(ig.detail,/quota (\d+)/) ?? '—';
+  const cards = [
+    ['Twitch', twV, tw.state==='ok'?'watching now':'offline', 'var(--twitch)', 'Viewers on Twitch right now. ' + (tw.extra ? 'Title: ' + tw.extra : '')],
+    ['YouTube', ytV, ytSub, 'var(--yt)', 'Viewers on YouTube, read by the Pi every few minutes. YouTube sometimes hides small counts.'],
+    ['On air', upS, up == null ? 'not streaming' : (obs.state === 'ok' ? 'streaming' : 'streaming · see OBS'), 'var(--ok)', 'How long OBS has been streaming without a break. Maintenance restarts it at 07:40 and 19:40.'],
+    ['Furthest map', furthest, areas + (String(areas) === '1' ? ' area' : ' areas'), 'var(--accent)', 'Furthest map number the fly has reached this run, and how many distinct areas it has seen.'],
+    ['Stories', quota, 'last 24 h', 'var(--warn)', 'Instagram Stories posted in the last 24 hours (limit 100).'],
+  ];
+  document.getElementById('hero').innerHTML = cards.map(([k,v,s,c,tip]) =>
+    `<div class="stat" data-tip="${tip.replace(/"/g,'&quot;')}"><div class="k"><span class="swatch" style="background:${c}"></span>${k}</div>
+     <div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+}
+
+async function tick(){
+  let d;
+  try { d = await (await fetch('/api/status')).json(); }
+  catch(e){ document.getElementById('at').textContent = 'panel offline';
+            const p = document.getElementById('overall'); p.className = 'pill bad';
+            p.textContent = 'panel offline'; return; }
+  document.getElementById('at').textContent = d.at;
+  const piHeld = d.held && d.held_by === 'streamer';
+  if (d.stim !== stimReady || d.control !== hasToken || !!d.chat !== chatReady || piHeld !== held){
+    stimReady = !!d.stim; hasToken = !!d.control; chatReady = !!d.chat; held = piHeld; syncPad();
+  }
+  document.getElementById('heldstate').textContent = !d.held ? 'fly and chat are driving'
+    : (d.held_by === 'streamer' ? 'YOU hold control' : d.held_by + ' holds control (!menu)')
+      + (d.held_secs != null ? ` · ${Math.floor(d.held_secs/60)}:${String(d.held_secs%60).padStart(2,'0')} left` : '');
+  const bad = d.checks.filter(c => c.state === 'bad' || c.state === 'unknown').length;
+  const warn = d.checks.filter(c => c.state === 'warn').length;
+  const p = document.getElementById('overall');
+  p.className = 'pill ' + (bad ? 'bad' : warn ? 'warn' : 'ok');
+  p.textContent = bad ? `${bad} problem${bad>1?'s':''}`
+                 : warn ? `${warn} warning${warn>1?'s':''}` : 'all systems normal';
+  hero(d.checks);
+  // One glanceable strip: dot + name + one value. Everything else lives in the tooltip.
+  const order = ['Twitch','YouTube','OBS','Feed','Game','Relay','Progress','Stuck','Instagram','Threads','Discord','Watchdog','Backup','Tokens','Pi power'];
+  const cs = d.checks.slice().sort((a, b) => (order.indexOf(a.name) + 1 || 99) - (order.indexOf(b.name) + 1 || 99));
+  const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const strip = cs.map(c => `<div class="hsi ${c.state}" data-tip="<b>${esc(c.name)}</b>: ${esc(c.detail)}${c.extra ? '<br><span style=&quot;color:var(--dim)&quot;>' + esc(c.extra) + '</span>' : ''}${c.means ? '<br><span style=&quot;color:var(--faint)&quot;>' + esc(c.means) + '</span>' : ''}">
+      <span class="dot"></span><span class="nm">${c.name}</span><span class="vl">${short(c)}</span></div>`).join('');
+  const probs = cs.filter(c => c.state === 'bad' || c.state === 'warn' || c.state === 'unknown').map(c => `
+      <div class="check ${c.state}"><div class="crow"><span class="cname"><span class="dot"></span>${c.name}</span>
+        <span class="cval">${c.detail || ''}</span></div>
+        ${c.fix ? `<div class="cfix ${c.state === 'bad' ? 'bad' : ''}">${c.fix}</div>` : (c.means ? `<div class="cmeans">${c.means}</div>` : '')}</div>`).join('');
+  document.getElementById('groups').innerHTML = `<div class="hs">${strip}</div>${probs ? `<div class="probs">${probs}</div>` : ''}`;
+}
+/* The one number worth seeing per service; the full sentence is in the tooltip. */
+function short(c){
+  const d = c.detail || '', g = re => { const m = d.match(re); return m ? m[1] : null; };
+  if (c.state === 'off') return 'off';
+  switch (c.name){
+    case 'Twitch':   return g(/(\d+) viewer/) ?? (c.state === 'ok' ? 'live' : '—');
+    case 'YouTube':  return /^live/.test(d) ? (g(/(\d+) viewer/) ?? 'live') : c.state === 'unknown' ? '?' : 'not live';
+    case 'OBS':      { const m = g(/up (\d+) min/); return m ? (m >= 60 ? (m / 60).toFixed(1) + 'h' : m + 'm') : 'on'; }
+    case 'Relay':    return g(/speed ([\d.]+)/) ? g(/speed ([\d.]+)/) + '×' : 'on';
+    case 'Progress': return 'map ' + (g(/furthest map (\d+)/) ?? '?');
+    case 'Stuck':    return g(/(\d+)s/) ? g(/(\d+)s/) + 's' : (/moving/.test(d) ? 'moving' : 'ok');
+    case 'Instagram':return g(/quota (\d+)/) ? g(/quota (\d+)/) + '/100' : 'ok';
+    case 'Tokens':   { const ds = [...d.matchAll(/(\d+)d/g)].map(m => +m[1]); return ds.length ? Math.min(...ds) + 'd' : 'ok'; }
+    case 'Pi power': return g(/(\d\.\d+)\s*V/) ? g(/(\d\.\d+)\s*V/) + 'V' : 'ok';
+    case 'Feed':     return g(/(\d+\/\d+)/) || 'ok';
+    case 'Game':     return /playing/.test(d) ? 'playing' : d.split(' ')[0];
+  }
+  return c.state === 'ok' ? 'ok' : (d.split('·')[0].trim().slice(0, 14) || c.state);
+}
+
+async function post(url, body){
+  try {
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'},
+                                body: body ? JSON.stringify(body) : undefined});
+    if (r.status === 403) return {ok:false, msg:'not signed in: open the panel link with ?k= once'};
+    return await r.json();
+  } catch(e) { return {ok:false, msg:'panel unreachable'}; }
+}
+async function act(name){
+  const m = document.getElementById('msg');
+  m.textContent = name.replace('_',' ') + '…';
+  const r = await post('/api/act/'+name);
+  m.textContent = r.msg; tick();
+}
+// Stop is the one button that takes the show off air: it needs a second tap within 4 s.
+let stopArmed = null;
+function stopStream(){
+  const b = document.getElementById('stopbtn');
+  const reset = () => { stopArmed = null; b.classList.remove('armed'); b.textContent = 'Stop stream'; };
+  if (stopArmed){ clearTimeout(stopArmed); reset(); return act('stream_stop'); }
+  b.classList.add('armed'); b.textContent = 'Tap again to stop';
+  stopArmed = setTimeout(reset, 4000);
+}
+
+const cm = () => document.getElementById('ctlmsg');
+const pad = () => [...document.querySelectorAll('.pad button, .ab button')];
+async function input(body){
+  const r = await post('/api/input', body);
+  cm().textContent = r.ok ? (r.note || JSON.stringify(body)) : ('refused: ' + (r.msg || r.note || '?'));
+  return r.ok;
+}
+async function take(){ if (await input({action:'take'})) { held = true; syncPad(); tick(); } }
+async function release(){ await input({action:'release'}); held = false; syncPad(); tick(); }
+async function stim(kind){ await input({action:'stim', kind:kind}); }
+function syncPad(){
+  // START only does anything inside take/!menu, same as in chat
+  pad().forEach(b => b.disabled = !(hasToken && (held || (chatReady && b.dataset.k !== 'start'))));
+  document.getElementById('take').disabled = !hasToken || held;
+  document.getElementById('release').disabled = !hasToken || !held;
+  ['pleasure','pain'].forEach(id => document.getElementById(id).disabled = !(hasToken && stimReady));
+}
+document.addEventListener('click', e => {
+  const k = e.target.dataset && e.target.dataset.k;
+  if (k && !e.target.disabled) send(k);
+});
+// Holding control: a direct press. Otherwise: the same as the streamer typing it in chat.
+function send(k){ return input(held ? {action:'press', key:k} : {action:'chat', key:k}); }
+const KEYMAP = {ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',z:'a',x:'b',Enter:'start'};
+document.addEventListener('keydown', e => {
+  const k = KEYMAP[e.key];
+  if (!k || e.repeat || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (document.getElementById('drive').style.display === 'none') return;
+  if (hasToken && (held || (chatReady && k !== 'start'))){ e.preventDefault(); send(k); }
+});
+
+// ================================================================ charts
+const COL = {ok:'var(--ok)', warn:'var(--warn)', bad:'var(--bad)', off:'var(--off)', unknown:'var(--accent)'};
+const hhmm = t => new Date(t*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+const fmtN = (v, d=0) => v == null ? '—' : (+v).toFixed(d);
+const CHARTS = {};
+let chartSeq = 0;
+
+/* Line chart with y-axis, time axis, reference lines and a hover/tap readout.
+   ts: timestamps; series: [{name, color, vals, fill}]; opts: {unit, dec, min, max, refs, h} */
+function lineChart(ts, series, o = {}){
+  const h = o.h || 140, W = 600, id = 'c' + (++chartSeq);
+  const all = series.flatMap(s => s.vals).filter(v => v != null);
+  if (ts.length < 2 || all.length < 2) return '<div style="color:var(--faint);font-size:12px;padding:18px 0">not enough data yet</div>';
+  let lo = o.min ?? Math.min(...all, ...(o.refs||[]).map(r => r.y));
+  let hi = o.max ?? Math.max(...all, ...(o.refs||[]).map(r => r.y));
+  if (hi === lo) { hi += 1; lo -= o.min != null ? 0 : 1; }
+  const pad = (hi - lo) * .08; if (o.min == null) lo -= pad; if (o.max == null) hi += pad;
+  const X = i => i / (ts.length - 1) * W, Y = v => h - (v - lo) / (hi - lo) * h;
+  const grid = [0, .25, .5, .75, 1].map(f => lo + (hi - lo) * f);
+  let svg = grid.map(g => `<line x1="0" x2="${W}" y1="${Y(g)}" y2="${Y(g)}" stroke="#23232e" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
+  (o.refs||[]).forEach(r => svg += `<line x1="0" x2="${W}" y1="${Y(r.y)}" y2="${Y(r.y)}" stroke="${r.color}" stroke-dasharray="4 4" stroke-width="1" opacity=".75" vector-effect="non-scaling-stroke"/>`);
+  series.forEach(sr => {
+    // break the line at gaps instead of drawing across them
+    let d = '', pen = false, segs = [];
+    sr.vals.forEach((v, i) => {
+      if (v == null) { pen = false; return; }
+      d += (pen ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1); pen = true;
+    });
+    if (sr.fill) {
+      let run = [];
+      sr.vals.forEach((v, i) => { if (v != null) run.push(i); else if (run.length) { segs.push(run); run = []; } });
+      if (run.length) segs.push(run);
+      segs.filter(r => r.length > 1).forEach(r => {
+        const pts = r.map(i => `${X(i).toFixed(1)},${Y(sr.vals[i]).toFixed(1)}`).join(' ');
+        svg += `<polygon points="${X(r[0]).toFixed(1)},${h} ${pts} ${X(r[r.length-1]).toFixed(1)},${h}" fill="${sr.color}" opacity=".13"/>`;
+      });
+    }
+    svg += `<path d="${d}" fill="none" stroke="${sr.color}" stroke-width="1.8" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+  });
+  svg += `<line class="xh" x1="0" x2="0" y1="0" y2="${h}" stroke="var(--line2)" stroke-width="1" vector-effect="non-scaling-stroke" style="display:none"/>`;
+  CHARTS[id] = {ts, series, o};
+  const ylabs = [grid[0], grid[2], grid[4]].map(g =>
+    `<div class="ylab" style="top:${(Y(g)/h*100).toFixed(1)}%">${fmtN(g, o.ydec ?? o.dec ?? 0)}</div>`).join('');
+  const n = ts.length, xt = [0, .25, .5, .75, 1].map(f => hhmm(ts[Math.round(f*(n-1))]));
+  const legend = series.length > 1 || o.legend ? `<div class="legend">${series.map(sr =>
+    `<span><i style="background:${sr.color}"></i>${sr.name}</span>`).join('')}</div>` : '';
+  return `${legend}<div class="cw" id="${id}" onmousemove="hover(event,'${id}')" onmouseleave="unhover('${id}')"
+      ontouchstart="hover(event,'${id}')" ontouchmove="hover(event,'${id}')">
+    <div style="position:relative;height:${h}px">${ylabs}
+      <svg viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" style="height:${h}px">${svg}</svg></div>
+    <div class="tip"></div></div>
+    <div class="xlab">${xt.map(x => `<span>${x}</span>`).join('')}</div>`;
+}
+function hover(e, id){
+  const c = CHARTS[id], el = document.getElementById(id); if (!c || !el) return;
+  const svg = el.querySelector('svg'), r = svg.getBoundingClientRect();
+  const px = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  const i = Math.max(0, Math.min(c.ts.length - 1, Math.round(px / r.width * (c.ts.length - 1))));
+  const xh = el.querySelector('.xh'), x = i / (c.ts.length - 1) * 600;
+  xh.setAttribute('x1', x); xh.setAttribute('x2', x); xh.style.display = '';
+  const tip = el.querySelector('.tip');
+  tip.innerHTML = `<div style="color:var(--faint)">${hhmm(c.ts[i])}</div>` + c.series.map(sr =>
+    `<div><span style="color:${sr.color}">●</span> ${sr.name}: <b>${fmtN(sr.vals[i], c.o.dec ?? 0)}</b>${c.o.unit ? ' ' + c.o.unit : ''}</div>`).join('');
+  tip.style.display = 'block';
+  const left = 38 + px + 12, tw = tip.offsetWidth;
+  tip.style.left = (left + tw > el.offsetWidth ? 38 + px - tw - 12 : left) + 'px';
+}
+function unhover(id){ const el = document.getElementById(id); if (!el) return;
+  el.querySelector('.xh').style.display = 'none'; el.querySelector('.tip').style.display = 'none'; }
+const kpis = list => `<div class="kpis">${list.map(([n,l]) => `<div class="kpi"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('')}</div>`;
+
+// ================================================================ status tab: last 24 h
+let TL = null;
+async function timeline(){
+  let d; try { d = await (await fetch('/api/timeline')).json(); } catch(e){ return; }
+  TL = d;
+  const n = d.series.twitch.length, ts = [...Array(n)].map((_, i) => d.start + (i + .5) * d.width);
+  const tw = d.series.twitch, yt = d.series.youtube, v = d.series.volts, tp = d.series.temp;
+  const nz = a => a.filter(x => x != null);
+  const peak = a => nz(a).length ? Math.max(...nz(a)) : null;
+  const mean = a => nz(a).length ? nz(a).reduce((p,c) => p+c, 0) / nz(a).length : null;
+  document.getElementById('aud').innerHTML =
+    lineChart(ts, [{name:'Twitch', color:'#9146ff', vals:tw, fill:true}, {name:'YouTube', color:'#ff4e45', vals:yt}],
+              {min:0, unit:'viewers', dec:1, ydec:0}) +
+    kpis([[fmtN(peak(d.peak.twitch)), 'Twitch peak'], [fmtN(mean(tw), 1), 'Twitch avg'],
+          [fmtN(peak(d.peak.youtube)), 'YouTube peak']]);
+  document.getElementById('pwr').innerHTML =
+    lineChart(ts, [{name:'lowest EXT5V', color:'#43b581', vals:d.low.volts, fill:true}],
+              {unit:'V', dec:2, ydec:2, min:4.75, max:5.2,
+               refs:[{y:5.0, color:'var(--warn)'}, {y:4.85, color:'var(--bad)'}]}) +
+    kpis([[fmtN(v.filter(x => x != null).slice(-1)[0], 2) + ' V', 'now'],
+          [fmtN(nz(d.low.volts).length ? Math.min(...nz(d.low.volts)) : null, 2) + ' V', 'lowest 24h'],
+          [fmtN(nz(tp).slice(-1)[0], 0) + ' °C', 'temp now'], [fmtN(peak(tp), 0) + ' °C', 'temp peak']]);
+  const order = ['Twitch','YouTube','OBS','Feed','Game','Relay','Progress','Stuck','Instagram','Discord','Watchdog','Tokens','Pi power'];
+  const names = order.filter(k => d.checks[k]).concat(Object.keys(d.checks).filter(k => !order.includes(k) && k !== 'Pi tools'));
+  document.getElementById('tl').innerHTML = names.map(k => {
+    const st = d.checks[k].states, have = st.filter(x => x != null && x !== 'off' && x !== 'unknown');
+    const pct = have.length ? Math.round(100 * have.filter(x => x === 'ok').length / have.length) : null;
+    return `<div class="tlrow"><span class="tlname">${k}</span><span class="tlstrip">${st.map((x, i) =>
+      `<span style="background:${x ? COL[x] || 'var(--off)' : '#1d1d26'}" data-k="${k}" data-i="${i}"></span>`).join('')}</span>
+      <span class="tlpct" style="color:${pct == null ? 'var(--faint)' : pct >= 99 ? 'var(--ok)' : pct >= 90 ? 'var(--warn)' : 'var(--bad)'}">${pct == null ? 'n/a' : pct + '%'}</span></div>`;
+  }).join('') + `<div class="tlaxis">${[0, 6, 12, 18, 24].map(hh => `<span>${hh === 24 ? 'now' : hhmm(d.start + hh*3600)}</span>`).join('')}</div>`;
+}
+function tlInfo(e){
+  const c = e.target.closest('.tlstrip span'); if (!c || !TL) return;
+  const k = c.dataset.k, i = +c.dataset.i, st = TL.checks[k].states[i];
+  const t0 = TL.start + i * TL.width;
+  document.getElementById('tlinfo').innerHTML = `<b>${k}</b> · ${hhmm(t0)}–${hhmm(t0 + TL.width)} · ` +
+    (st ? `<span style="color:${COL[st] || 'var(--dim)'}">${st}</span>${st !== 'ok' && TL.checks[k].details[i] ? ' — ' + TL.checks[k].details[i] : ''}` : 'no data');
+}
+document.addEventListener('mouseover', tlInfo);
+document.addEventListener('click', tlInfo);
+
+// ================================================================ science tab
+let HOURS = 6;
+function setHours(h){ HOURS = h;
+  document.querySelectorAll('.hrs').forEach(b => b.classList.toggle('on', +b.dataset.h === h));
+  science(); }
+
+/* Counters are cumulative, so per-minute rates come from differencing. A drop
+   means the game restarted: that interval is a gap, not a negative rate. */
+function rateAt(rows, key){
+  const out = [null];
+  for (let i = 1; i < rows.length; i++){
+    const a = rows[i-1][key], b = rows[i][key], dt = (rows[i].t - rows[i-1].t) / 60 || 1;
+    out.push(a == null || b == null || b < a ? null : (b - a) / dt);
+  }
+  return out;
+}
+/* Average into at most n time buckets: smooths minute-to-minute noise and keeps
+   3-day views light. */
+function bucket(ts, cols, n = 120){
+  if (ts.length <= n) return {ts, cols};
+  const t0 = ts[0], w = (ts[ts.length-1] - t0) / n || 1;
+  const bt = [...Array(n)].map((_, i) => t0 + (i + .5) * w);
+  const out = {};
+  for (const [k, v] of Object.entries(cols)){
+    const acc = [...Array(n)].map(() => []);
+    v.forEach((x, i) => { if (x != null) acc[Math.min(n-1, Math.floor((ts[i] - t0) / w))].push(x); });
+    out[k] = acc.map(a => a.length ? a.reduce((p,c) => p+c, 0) / a.length : null);
+  }
+  return {ts: bt, cols: out};
+}
+const sum0 = a => a.filter(x => x != null).reduce((p, c) => p + c, 0);
+const lastv = a => { const v = a.filter(x => x != null); return v.length ? v[v.length-1] : null; };
+const avgv = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((p,c) => p+c, 0) / v.length : null; };
+
+function diverge(leftN, rightN, leftLabel, rightLabel, color){
+  const tot = (leftN || 0) + (rightN || 0);
+  if (!tot) return '<div style="color:var(--faint);font-size:12px">no data</div>';
+  const lp = 100 * leftN / tot;
+  return `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin:8px 0 4px">
+      <span>${leftLabel} <b style="color:var(--fg)">${leftN}</b></span><span><b style="color:var(--fg)">${rightN}</b> ${rightLabel}</span></div>
+    <div style="position:relative;height:12px;background:#23232e;border-radius:6px;overflow:hidden">
+      <div style="position:absolute;top:0;bottom:0;right:50%;width:${Math.max(0, lp-50)}%;background:${color}"></div>
+      <div style="position:absolute;top:0;bottom:0;left:50%;width:${Math.max(0, 50-lp)}%;background:${color}"></div>
+      <div style="position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--fg);opacity:.5"></div></div>
+    <div style="text-align:center;font-size:12px;color:var(--dim);margin-top:4px">${lp.toFixed(1)}% ${leftLabel} · 50% is even</div>`;
+}
+
+/* The fly's thoughts: what it "said" it was doing, how often, and whether the tile
+   map agreed at the moment it decided. Accuracy uses the fly's own thoughts only. */
+function nice(kind){
+  return kind.replace(/_/g, ' ')
+    .replace(/\bthe X\b/g, 'one side').replace(/\bX\b/g, 'left/right')
+    .replace(/ (stopping|turning|going|keeping)\b/, ' — $1')
+    .replace(/^\w/, c => c.toUpperCase());
+}
+function thoughtsCard(t){
+  if (!t || !t.kinds || !Object.keys(t.kinds).length)
+    return `<div class="chart wide"><h3>Thoughts</h3><p>No thought data yet.</p></div>`;
+  const days = t.days || [], tot = days.reduce((p, d) => p + (d.thoughts || 0), 0);
+  const clean = days.reduce((p, d) => p + (d.clean || 0), 0);
+  const perMin = days.length ? days[days.length - 1].per_min : null;
+  const st = t.stops || {};
+  const pc = v => v >= 80 ? 'var(--ok)' : v >= 60 ? 'var(--warn)' : 'var(--bad)';
+  const rows = Object.entries(t.kinds).sort((a, b) => b[1].n - a[1].n).map(([k, v]) => {
+    const acc = Object.entries(v.accuracy || {}).map(([ak, av]) =>
+      `<span class="chip">${ak.replace(/_/g, ' ')}: <b style="color:${pc(av.pct)}">${av.pct.toFixed(0)}%</b> <span style="color:var(--faint)">(${av.ok}/${av.n})</span></span>`).join('');
+    return `<div class="tkr"><span class="lbl">${nice(k)}</span><span class="bar"><span style="width:${(100 * v.share).toFixed(1)}%"></span></span>
+      <span class="n">${v.n} · ${(100 * v.share).toFixed(0)}%</span>${acc ? `<div class="chips">${acc}</div>` : ''}</div>`;
+  }).join('');
+  const realPct = (st.real + st.nothing_in_the_way) ? 100 * st.real / (st.real + st.nothing_in_the_way) : null;
+  return `<div class="chart wide"><h3>Thoughts</h3>
+    <p>What the fly "says" it's doing (the captions on stream), and whether the tile map agreed at the moment it
+    decided. Green ≥ 80% right, amber ≥ 60%, red below. Accuracy counts the fly's own thoughts only, never chat-steered ones.</p>
+    ${kpis([[tot.toLocaleString(), 'thoughts'], [fmtN(perMin, 0), 'per min of play'],
+            [tot ? (100 * clean / tot).toFixed(0) + '%' : '—', "fly's own"],
+            [st.phantom_pct != null ? st.phantom_pct.toFixed(0) + '%' : '—', 'stops with nothing there']])}
+    <div class="tk">${rows}</div>
+    ${realPct != null ? `<div style="margin-top:12px;font-size:12px;color:var(--dim)">Stops: real obstacle vs nothing in the way</div>
+      <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-top:5px;background:#23232e">
+        <span style="width:${realPct}%;background:var(--ok)"></span><span style="width:${100 - realPct}%;background:var(--bad)"></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint);margin-top:3px">
+        <span>${st.real} real</span><span>${st.nothing_in_the_way} phantom</span></div>` : ''}
+  </div>`;
+}
+
+// ---------------------------------------------------------------- brain cards
+const SRC = {human:['chat (humans)','#9146ff'], game:['the game','#f0a93b'], rule:['stillness rule','#ec4a4f'],
+             before_ledger:['before today','#636372']};
+function stack(parts){
+  const tot = parts.reduce((p, x) => p + x.v, 0);
+  if (!tot) return '<div style="color:var(--faint);font-size:12px">nothing outstanding</div>';
+  return `<div style="display:flex;height:14px;border-radius:7px;overflow:hidden;background:#23232e;margin-top:6px">
+      ${parts.map(x => `<span title="${x.l}" style="width:${100*x.v/tot}%;background:${x.c}"></span>`).join('')}</div>
+    <div class="legend" style="margin-top:6px">${parts.map(x =>
+      `<span><i style="background:${x.c}"></i>${x.l} ${(100*x.v/tot).toFixed(0)}%</span>`).join('')}</div>`;
+}
+// Zero-valued items fold into one "inactive" line instead of a column of empty bars.
+function hbars(items, max, unit, foldZero){
+  const live = foldZero ? items.filter(x => Math.abs(x[1]) >= 0.005) : items;
+  const off = foldZero ? items.filter(x => Math.abs(x[1]) < 0.005).map(x => x[0]) : [];
+  return `<div class="tk">${live.map(([l, v, c]) => `<div class="tkr"><span class="lbl">${l}</span>
+    <span class="bar"><span style="width:${Math.min(100, 100 * v / (max || 1)).toFixed(1)}%;background:${c || 'var(--accent)'}"></span></span>
+    <span class="n">${v.toFixed(v < 10 ? 2 : 0)}${unit ? ' ' + unit : ''}</span></div>`).join('')}</div>` +
+    (off.length ? `<div class="inactive">silent right now: ${off.join(', ')}</div>` : '');
+}
+/* Per-viewer inputs: who pressed what, what got through, and whether they steered
+   with or against the fly. Keyed by Twitch login; "streamer" = this panel. */
+function viewersCard(V){
+  if (!V || !V.totals) return '';
+  const T = V.totals, U = Object.entries(V.users || {}).sort((a, b) => b[1].inputs - a[1].inputs);
+  const acc = U.reduce((p, [, u]) => p + (u.accepted || 0), 0);
+  const refused = Object.entries(T.by_outcome || {}).filter(([k]) => !/^ok|queued|admin|null/.test(k))
+                    .reduce((p, [, v]) => p + v, 0);
+  const ds = T.delivered_stims || {};
+  const sum = re => Object.entries(ds).filter(([k]) => re.test(k)).reduce((p, [, v]) => p + v, 0);
+  const VS = [['together', '#43b581'], ['apart', '#5b8def'], ['fly_idle', '#636372'], ['against', '#ec4a4f']];
+  const rows = U.slice(0, 25).map(([who, u]) => {
+    const vs = u.vs_fly || {}, vt = VS.reduce((p, [k]) => p + (vs[k] || 0), 0);
+    const ref = Object.values(u.refused || {}).reduce((p, v) => p + v, 0);
+    const d = u.delivered || {};
+    return `<div class="vrow"><span class="who" title="${who}">${{streamer:'you (panel)', keyboard:'Pi keyboard', mouse:'Pi touchscreen'}[who] || who}</span>
+      <span class="num n1">${u.inputs}</span>
+      <span class="num n2">${u.inputs ? Math.round(100 * (u.accepted || 0) / u.inputs) : 0}% through${ref ? '' : ''}</span>
+      ${vt ? `<span class="vbar" title="${VS.map(([k]) => k.replace('_', ' ') + ' ' + (vs[k] || 0)).join(' · ')}">${VS.map(([k, c]) =>
+          `<span style="width:${100 * (vs[k] || 0) / vt}%;background:${c}"></span>`).join('')}</span>`
+        : '<span class="num" style="font-size:11.5px">no steering</span>'}
+      <span class="num n3">${(d.pain || 0) || (d.pleasure || 0) ? `<span style="color:var(--bad)">${d.pain || 0} pain</span> · <span style="color:var(--ok)">${d.pleasure || 0} pleasure</span>` : ''}</span>
+      ${(u.flags || []).length ? `<span class="fl" style="grid-column:1/-1">${u.flags.map(f => `<span class="chip" style="border-color:var(--warn);color:var(--warn)">${f}</span>`).join(' ')}</span>` : ''}</div>`;
+  }).join('');
+  return `<div class="chart wide"><h3>Viewers</h3>
+    <p>Every chat and panel input in this window, refused ones included. "Through" = it reached the game.
+    The bar shows how each person's steering lined up with the fly's own choice:
+    <span style="color:#43b581">with it</span>, <span style="color:#5b8def">a different direction</span>,
+    <span style="color:#9292a3">fly was idle</span>, <span style="color:#ec4a4f">against it</span>.
+    Flags come from the Pi: <b>pain-only</b> (only ever punishes) and <b>spammy</b> (far above the normal rate).</p>
+    ${kpis([[T.inputs ?? 0, 'inputs'], [T.users ?? 0, 'people'],
+            [T.inputs ? Math.round(100 * acc / T.inputs) + '%' : '—', 'got through'],
+            [sum(/^human_pain/) + ' / ' + sum(/^human_pleasure/), 'human pain / pleasure'],
+            [T.rule_pains ?? 0, 'stillness-rule pains']])}
+    ${U.length ? `<div style="margin-top:12px"><div class="vrow vhead"><span>who</span><span>inputs</span><span>through</span>
+        <span>steering vs the fly</span><span>stims delivered</span></div>${rows}</div>
+      ${U.length > 25 ? `<div class="inactive">+ ${U.length - 25} more</div>` : ''}`
+      : '<div class="inactive">No viewer inputs in this window.</div>'}
+  </div>`;
+}
+
+/* Which rule made each turn, and which way it went (fly's own frame), since the
+   game's last calibration. Lets us see whether the right-turn lean comes from
+   obstacle avoidance, attraction to doors/people, walls or spontaneous turns. */
+/* Findings: curated experiment results + this run's milestones, each credited to
+   the fly alone or to a human assist (no human key in the previous 5 s = fly). */
+function findingsCard(F, M, RUN){
+  const ex = (F && F.experiments) || [], ob = (F && F.observations) || [];
+  const fly = (M && M.fly) || {}, list = fly.list || [], st = fly.still || {};
+  const col = {result: 'var(--ok)', scheduled: 'var(--warn)', void: 'var(--bad)'};
+  const exHtml = ex.map(e => `<div style="padding:9px 0;border-bottom:1px solid var(--line)">
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">
+        <b>${e.name}</b><span class="chip" style="border-color:${col[e.status] || 'var(--line2)'};color:${col[e.status] || 'var(--dim)'}">${e.status}</span>
+        <span style="color:var(--faint);font-size:11.5px">${e.date}</span></div>
+      <div style="margin-top:3px;font-weight:600">${e.verdict}</div>
+      <div style="color:var(--dim);font-size:12.5px;margin-top:2px">${e.detail}</div>
+      ${e.note ? `<div style="color:var(--faint);font-size:11.5px;margin-top:3px">${e.note}</div>` : ''}</div>`).join('');
+  const icon = {area: '📍', level: '⬆', faint: '✖', party: '★', badge: '🏅', catch: '★', evolve: '✦'};
+  const evHtml = list.slice().reverse().map(([kind, text, by, sh]) => `
+    <div style="display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px">
+      <span style="width:18px;text-align:center">${icon[kind] || '•'}</span>
+      <span style="flex:1">${text}</span>
+      <span class="chip" style="border-color:${by === 'fly' ? 'var(--ok)' : 'var(--tw, #9146ff)'};color:${by === 'fly' ? 'var(--ok)' : '#b48cff'}">${by === 'fly' ? 'fly alone' : 'chat helped'}</span>
+      <span style="color:var(--faint);width:118px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums">${sh == null ? '' : (sh >= 60 ? Math.round(sh / 60) + ' min' : Math.round(sh) + ' s') + ' since human'}</span></div>`).join('');
+  return `<div class="chart wide"><h3>Findings</h3>
+    <p>Preregistered experiments (method written before data, verified by an independent recompute) and what has
+    happened this run. A milestone counts as the fly's alone only if no human key reached the game in the 5 s before.</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px">
+      <div><div style="font-size:12px;color:var(--dim);margin-bottom:2px">Experiments</div>${exHtml || '<div class="inactive">none yet</div>'}
+        ${ob.length ? `<div style="font-size:12px;color:var(--dim);margin:12px 0 2px">Observations (not tested)</div>` +
+          ob.map(o => `<div style="color:var(--dim);font-size:12.5px;padding:4px 0">${o.text} <span style="color:var(--faint)">(${o.date})</span></div>`).join('') : ''}</div>
+      <div><div style="font-size:12px;color:var(--dim);margin-bottom:2px">Run ${RUN.n} milestones</div>
+        ${kpis([[fly.events ?? 0, 'milestones'], [fly.by_fly ?? 0, 'by the fly alone'], [fly.assisted ?? 0, 'chat helped'],
+                [st.dialogue_share != null ? Math.round(100 * st.dialogue_share) + '%' : '—', 'of standing still was in dialogue']])}
+        <div style="margin-top:8px;max-height:320px;overflow:auto">${evHtml || '<div class="inactive">no milestones yet this run</div>'}</div></div>
+    </div></div>`;
+}
+
+/* Just for fun: which starter the fly picks each run. Runs come from the Pi's
+   "starters:" line (1=SQUIRTLE:fly ...), else the hand-kept list in findings.json. */
+function starterCard(S){
+  const runs = Object.entries(S || {}).map(([n, v]) => { const [p, by] = String(v).split(':'); return [+n, p.toUpperCase(), by || '?']; })
+    .filter(x => x[1]).sort((a, b) => a[0] - b[0]);
+  if (!runs.length) return '';
+  const MON = [['BULBASAUR', 'Bulbasaur', '#5fbf6a', '🌱'], ['CHARMANDER', 'Charmander', '#f0803b', '🔥'], ['SQUIRTLE', 'Squirtle', '#4f9dea', '💧']];
+  const cnt = k => runs.filter(r => r[1] === k).length, mx = Math.max(1, ...MON.map(m => cnt(m[0])));
+  const top = MON.slice().sort((a, b) => cnt(b[0]) - cnt(a[0]))[0];
+  const byTxt = b => b === 'fly' ? 'picked by the fly on its own: no human key in the minutes before, though a human may have walked it to the table earlier' : b === '?' ? 'not attributable: no logs from that run' : 'chat helped at the moment of the pick';
+  return `<div class="chart"><h3>Fly's favourite starter</h3>
+    <p>Just for fun, not science: which starter the fly picks at the start of each run. With three choices, chance alone
+    repeats a lot. Hover a run for whether the pick was the fly's own.</p>
+    <div style="display:flex;align-items:baseline;gap:10px;margin:2px 0 10px">
+      <span style="font-size:26px">${top[3]}</span><span class="big" style="color:${top[2]}">${top[1]}</span>
+      <span class="unit">leads ${cnt(top[0])} of ${runs.length} runs</span></div>
+    <div class="tk">${MON.map(([k, l, c, e]) => `<div class="tkr s3">
+      <span class="lbl">${e} ${l}</span><span class="bar"><span style="width:${100 * cnt(k) / mx}%;background:${c}"></span></span>
+      <span class="n">${cnt(k)}</span></div>`).join('')}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">${runs.map(([n, p, by]) => {
+      const m = MON.find(x => x[0] === p) || [p, p, 'var(--dim)', '•'];
+      return `<span class="chip" data-tip="Run ${n}: ${m[1]} (${byTxt(by)})" style="border-color:${m[2]}">run ${n} ${m[3]}</span>`; }).join('')}</div></div>`;
+}
+
+function sidesCard(S, T){
+  const name = k => ({avoid: 'avoid obstacle', spontaneous: 'spontaneous', wall: 'wall ahead',
+    toward_exit: 'toward a door', away_from_exit: 'away from a door', toward_person: 'toward a person',
+    away_from_person: 'away from a person', other: 'other'})[k] || k.replace(/_/g, ' ');
+  const bar = (label, l, r) => {
+    const n = l + r, lp = n ? 100 * l / n : 50;
+    return `<div class="tkr w3" style="${n < 20 ? 'opacity:.55' : ''}">
+      <span class="lbl">${label}</span>
+      <span class="bar" style="position:relative;height:10px;background:#23232e;border-radius:5px;overflow:hidden">
+        <span style="position:absolute;top:0;bottom:0;right:50%;width:${Math.max(0, lp - 50)}%;background:#5b8def"></span>
+        <span style="position:absolute;top:0;bottom:0;left:50%;width:${Math.max(0, 50 - lp)}%;background:#f0a93b"></span>
+        <span style="position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--fg);opacity:.5"></span></span>
+      <span class="n">${l} L · ${r} R${n ? ' · ' + lp.toFixed(0) + '% L' : ''}</span></div>`;
+  };
+  const rows = Object.entries(S || {}).map(([k, v]) => {
+    const m = String(v).match(/^(\d+)\/(\d+)$/);
+    return m ? [k, +m[1], +m[2]] : null;
+  }).filter(Boolean).filter(x => x[1] + x[2] > 0).sort((a, b) => (b[1] + b[2]) - (a[1] + a[2]));
+  const L = +(T && T.left) || 0, R = +(T && T.right) || 0;
+  if (!rows.length && !(L + R)) return '';
+  const reported = Object.keys(S || {}).length > 0;
+  const per = rows.length ? rows.map(([k, l, r]) => bar(name(k), l, r)).join('')
+    : `<div class="inactive">${reported
+        ? 'The per-rule counter is not running in this game session (it returns with the next deploy).'
+        : 'Per-rule breakdown appears once the Pi reports which rule made each turn.'}</div>`;
+  return `<div class="chart"><h3>Turn sides by rule</h3>
+    <p>Which way the fly turned, since the game last started. Bars lean <span style="color:#5b8def">left</span>
+    or <span style="color:#f0a93b">right</span> of the centre line; faded rows have under 20 turns. The mirror test
+    found a built-in right lean; the per-rule rows show which rules carry it.</p>
+    <div class="tk">${L + R ? bar('<b>all turns</b>', L, R) : ''}${per}</div>
+    ${(+(T && T.a) || 0) + (+(T && T.b) || 0) ? `<div class="tk" style="margin-top:12px">${bar('A vs B presses', +T.a || 0, +T.b || 0).replace(' L · ', ' A · ').replace(' R ·', ' B ·').replace(/% L/, '% A')}</div>` : ''}</div>`;
+}
+
+function brainCards(B, r){
+  if (!B || !B.now) return '';
+  const n = B.now, S = (B.series || []).filter(x => x.t >= (window.__RUN_T || 0)), ts = S.map(x => x.t);
+  const out = Object.entries(n.outstanding || {}).map(([k, v]) =>
+    ({l: (SRC[k] || [k])[0], v, c: (SRC[k] || [k, '#5b8def'])[1]}));
+  const whoTrained = `<div class="chart wide"><h3>Who trained it</h3>
+    <p>The fly's learned changes (synaptic depression) booked to whoever caused them, from the Pi's learning ledger.
+    Training now fades (time constant 2 h of brain time: about 63% gone after 2 h), so this is what is <em>still</em> shaping it.
+    "Before today" is training from before the ledger existed and can't be split. Weights fingerprint ${n.fingerprint || '—'}.</p>
+    ${stack(out)}
+    ${lineChart(ts, [{name:'learned change still in effect', color:'#a06bff', vals:S.map(x => x.depressed), fill:true}],
+                {min:0, dec:0})}
+    ${kpis([[fmtN(n.learning.depressed_now, 0), 'units in effect'],
+            [fmtN((n.learning.human_share || 0) * 100, 0) + '%', 'from chat'],
+            [fmtN(n.learning.recovered, 0), 'faded this run']])}
+    ${(() => { const T = (B.trainers && B.trainers.trainers) || [];
+      if (!T.length) return '<div style="font-size:12px;color:var(--faint);margin-top:8px">No pain/pleasure delivered in this window yet, so no trainers to rank.</div>';
+      return `<table style="margin-top:10px"><tr><td style="color:var(--faint)">top trainers</td><td style="color:var(--faint)">stims · change booked</td></tr>
+        ${T.slice(0, 8).map(x => `<tr><td>${x.who} <span style="color:var(--faint)">(${(SRC[x.source] || [x.source])[0]})</span></td>
+          <td>${x.stims} · ${(+x.booked).toFixed(1)}${x.overlapped ? ' <span style="color:var(--faint)">(' + x.overlapped + ' shared)</span>' : ''}</td></tr>`).join('')}</table>`; })()}
+    </div>`;
+
+  const a = n.attrib || {}, fr = [['fly alone', a.clean_frames, '#43b581'], ['chat nudges', a.nudge_frames, '#9146ff'],
+    ['paid steering', a.driver_frames, '#f0a93b'], ['!menu / take', a.admin_frames, '#ec4a4f']]
+    .filter(x => x[1] != null).map(([l, v, c]) => ({l, v, c}));
+  const stims = [['chat pain', a.human_pain], ['chat pleasure', a.human_pleasure], ['game pain', a.game_pain],
+                 ['game pleasure', a.game_pleasure], ['stillness rule', a.rule_pain]];
+  const alone = `<div class="chart"><h3>Fly alone vs assisted</h3>
+    <p>Who was driving, frame by frame, since the game last started. A frame is the fly's own only if no human
+    key reached the game in the previous 5 s.</p>${stack(fr)}
+    <table style="margin-top:10px">${stims.map(([l, v]) => `<tr><td>${l}</td><td>${v ?? '—'}</td></tr>`).join('')}
+      <tr><td>since last human input</td><td>${n.since_human_s && n.since_human_s !== '-' ? n.since_human_s : 'none since the game restarted'}</td></tr></table></div>`;
+
+  const hz = n.hz || {}, eyes = n.eyes || {};
+  const G = [['eyes (optic)', hz.sc_optic, '#5b8def'], ['visual projection', hz.sc_visual_projection, '#5b8def'],
+             ['sensory', hz.sc_sensory, '#43b581'], ['central brain', hz.sc_central, '#a06bff'],
+             ['central complex (navigation)', hz.cx_central_complex, '#a06bff'], ['memory (KC)', hz.kc, '#f0a93b'],
+             ['memory output (MBON)', hz.mbon, '#f0a93b'], ['reward (PAM)', hz.pam, '#43b581'],
+             ['punishment (PPL1)', hz.ppl1, '#ec4a4f'], ['descending (to body)', hz.sc_descending, '#9292a3'],
+             ['motor', hz.sc_motor, '#9292a3']].filter(x => x[1] != null);
+  const gmax = Math.max(...G.map(x => x[1]), 1);
+  const E = Object.entries(eyes).filter(([k, v]) => v != null).sort((p, q) => Math.abs(q[1]) - Math.abs(p[1]))
+    .map(([k, v]) => [k.replace(/_/g, ' '), Math.abs(v), '#5b8def']);
+  const emax = Math.max(...E.map(x => x[1]), 1);
+  const m = n.motor || {};
+  const brain = `<div class="chart wide"><h3>Learning circuit over time</h3>
+    <p>Firing rate of the three learning-circuit regions this run, each on its own scale (punishment runs far higher).
+    Memory = Kenyon cells (KC), reward = PAM dopamine neurons, punishment = PPL1 dopamine neurons.</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px;margin-top:4px">
+      ${[['memory (KC)', 'kc', '#f0a93b'], ['reward (PAM)', 'pam', '#43b581'], ['punishment (PPL1)', 'ppl1', '#ec4a4f']].map(([l, k, c]) =>
+        `<div>${lineChart(ts, [{name:l, color:c, vals:S.map(x => x.hz[k] ?? null), fill:true}],
+                           {min:0, unit:'Hz', dec:2, ydec:2, h:70, legend:true})}</div>`).join('')}
+    </div></div>`;
+  return [whoTrained, alone, brain, sidesCard(n.sides, n.turns)];
+}
+
+async function science(){
+  let d; try { d = await (await fetch('/api/science?hours=' + HOURS)).json(); } catch(e){ return; }
+  let BR = null; try { BR = await (await fetch('/api/brain?hours=' + HOURS)).json(); } catch(e){}
+  let FD = null; try { FD = await (await fetch('/api/findings')).json(); } catch(e){}
+  let VW = null; try { VW = await (await fetch('/api/inputs?hours=' + HOURS)).json(); } catch(e){}
+  let th = null; try { th = await (await fetch('/api/thoughts?days=' + Math.max(1, Math.ceil(HOURS / 24)))).json(); } catch(e){}
+  // Each run is a different fly (fresh game, untrained brain): never mix runs on a chart.
+  // The run comes from the Pi (/health "run:"); fall back to run 3's start if it's missing.
+  const RUN = (d.run && d.run.started) ? {n: d.run.id, t: d.run.started, label: d.run.label, name: d.run.name, day: d.run.day, of: d.run.of}
+                                       : {n: 3, t: 1791465395, label: 'Oct 8, 9:16 AM'};
+  window.__RUN_T = RUN.t;
+  const allRows = d.rows;
+  const r = allRows.filter(x => x.t >= RUN.t), el = document.getElementById('sci');
+  const runNote = allRows.length > r.length
+    ? `<div class="chart wide" style="padding:10px 14px"><span style="color:var(--accent);font-weight:600">${RUN.name ? RUN.name + ' (run ' + RUN.n + ')' : 'Run ' + RUN.n}${RUN.day ? ' · day ' + RUN.day + ' of ' + (RUN.of || 14) : ''}</span>
+       <span style="color:var(--dim);font-size:12.5px"> · showing only the current run (started ${RUN.label}: brand-new game, untrained brain).
+       ${allRows.length - r.length} earlier samples belong to previous runs and are archived.</span></div>` : '';
+
+  if (r.length < 3){ el.innerHTML = runNote + '<div class="chart">Run ' + RUN.n + ' just started: not enough samples yet (one a minute). Charts appear after a few minutes.</div>'; return; }
+  const raw = r.map(x => x.t);
+  const B = bucket(raw, {
+    tiles: rateAt(r, 'tiles'), bumps: rateAt(r, 'bumps'), spikes: rateAt(r, 'spikes'),
+    tclean: rateAt(r, 'tiles_clean'), tassist: rateAt(r, 'tiles_assisted'), bclean: rateAt(r, 'bumps_clean'),
+    human: r.map(x => x.human_share == null ? null : x.human_share * 100),
+    battle: r.map(x => x.battle == null ? null : x.battle * 100),
+    people: r.map(x => x.people), exits: r.map(x => x.exits),
+    furthest: r.map(x => x.furthest), areas: r.map(x => x.areas)}, HOURS <= 6 ? 120 : 144);
+  const c = B.cols, ts = B.ts;
+  const tilesAvg = avgv(rateAt(r, 'tiles')), bumpsAvg = avgv(rateAt(r, 'bumps'));
+  const bumpPct = tilesAvg != null && bumpsAvg != null && (tilesAvg + bumpsAvg) ? 100 * bumpsAvg / (tilesAvg + bumpsAvg) : null;
+  // Attribution counters are per game process: sum the per-sample increases so a
+  // restart (counter drops) never subtracts. Old samples lack them entirely.
+  const inc = key => sum0(rateAt(r, key).map((v, i) => v == null ? null : v * ((r[i].t - r[i-1].t) / 60 || 1)));
+  const hasAttrib = r.some(x => x.tiles_clean != null);
+  const cleanTiles = hasAttrib ? inc('tiles_clean') : null, assistTiles = hasAttrib ? inc('tiles_assisted') : null;
+  const cleanBumps = hasAttrib ? inc('bumps_clean') : null;
+  const ownPct = hasAttrib && (cleanTiles + assistTiles) ? 100 * cleanTiles / (cleanTiles + assistTiles) : null;
+  const cleanBumpPct = hasAttrib && (cleanTiles + cleanBumps) ? 100 * cleanBumps / (cleanTiles + cleanBumps) : null;
+  const cf = hasAttrib ? inc('clean_frames') : null, ff = hasAttrib ? inc('fly_frames') + inc('nudge_frames') + inc('driver_frames') + inc('admin_frames') : null;
+  const cleanFramePct = hasAttrib && ff ? Math.min(100, 100 * cf / ff) : null;
+  const L = lastv(r.map(x => x.left)), R = lastv(r.map(x => x.right));
+  const A = lastv(r.map(x => x.a)), Bb = lastv(r.map(x => x.b));
+  const card = (t, why, body, cls = '') => `<div class="chart ${cls}"><h3>${t}</h3><p>${why}</p>${body}</div>`;
+  const hasLearn = c.people.some(v => v != null);
+  const tw = (a, b) => `<td>${a ?? '—'}</td><td>${b ?? '—'}</td>`;
+
+  // Steering bug, Oct 5 -> Oct 7 15:45 ET: turns the brain chose were applied to the
+  // game REVERSED (a name clash on Hands.mirror). Movement, bumps and stuck spells from
+  // that span come from a reversed-steering fly; turn counts record the brain's choice.
+  const STEER_FIX_T = 1791402300;
+  const preFix = r.filter(x => x.t < STEER_FIX_T).length;
+  const fixNote = preFix ? card('⚠ Steering bug in this window', `${preFix} of ${r.length} samples come from before the
+    fix (Oct 7, 3:45 PM). From Oct 5 until then, every turn the brain chose was applied to the game <b>reversed</b>.
+    Movement, bump and stuck numbers from that span describe a reversed-steering fly, not the brain's real behaviour.
+    Turn counts record the brain's choice and are unaffected. The Oct 5 mirror-world result is void and needs a rerun.
+    Use the 6-hour view once enough post-fix data exists.`, '', 'wide') : '';
+  // Stillness rule fired in battles until build dc2600a3fb (Oct 8, 1:03 PM). Lessons fade (tau 2 h), so the
+  // note only matters while a run that started before the fix is current.
+  const STILL_FIX_T = 1791478980;
+  const stillNote = RUN.t < STILL_FIX_T ? card('⚠ Stillness-rule bug earlier this run', `Until Oct 8, 1:03 PM the stillness
+    rule also fired <b>during battles</b> (the 60 s clock kept running when a battle started). In this run 13 of the first 25
+    rule pains landed in battles. The "stillness rule" share in <i>Who trained it</i> is inflated by them until those lessons
+    fade (a few hours). Fixed: the clock now counts overworld time only.`, '', 'wide') : '';
+  const BC = brainCards(BR, r) || [];
+  let MS = null; try { MS = await (await fetch('/api/inputs?hours=' + Math.max(1, Math.ceil((Date.now() / 1000 - RUN.t) / 3600)))).json(); } catch(e){}
+  el.innerHTML = [
+    runNote,
+    findingsCard(FD, MS, RUN),
+    starterCard(BR && BR.now && Object.keys(BR.now.starters || {}).length ? BR.now.starters : (FD && FD.starters)),
+    fixNote,
+    stillNote,
+    (hasAttrib ? card('Movement', 'Steps per minute, split by who was steering. <b>Fly\'s own</b> = no human key ' +
+      'for the previous 5 s; anything else is chat-assisted. Bump share uses the fly\'s own moves only, so viewers ' +
+      'can\'t skew the science. Collisions are a hard-wired reflex, so their share reflects the environment, not learning.',
+      lineChart(ts, [{name:'fly\'s own steps', color:'#43b581', vals:c.tclean, fill:true},
+                     {name:'chat-assisted steps', color:'#9146ff', vals:c.tassist},
+                     {name:'fly\'s own bumps', color:'#ec4a4f', vals:c.bclean}], {min:0, unit:'/min', dec:1, ydec:0}) +
+      kpis([[fmtN(cleanTiles, 0), 'own steps'], [fmtN(assistTiles, 0), 'assisted steps'],
+            [ownPct == null ? '—' : ownPct.toFixed(0) + '%', 'steps on its own'],
+            [cleanBumpPct == null ? '—' : cleanBumpPct.toFixed(0) + '%', 'own moves that bumped']]), 'wide')
+    : card('Movement', 'Tiles walked vs walls bumped, per minute. (Fly-vs-chat split not recorded in this window yet.)',
+      lineChart(ts, [{name:'tiles walked', color:'#43b581', vals:c.tiles, fill:true},
+                     {name:'bumps', color:'#ec4a4f', vals:c.bumps}], {min:0, unit:'/min', dec:1, ydec:0}) +
+      kpis([[fmtN(tilesAvg, 1), 'tiles / min'], [fmtN(bumpsAvg, 1), 'bumps / min'],
+            [bumpPct == null ? '—' : bumpPct.toFixed(0) + '%', 'moves that bumped']]), 'wide')),
+    BC[0] || '',
+    hasAttrib ? card('Human influence', 'Share of the last 5 minutes in which a human key reached the game ' +
+      '(chat nudges, paid steering, !menu, panel). 0% = the fly was entirely on its own.',
+      lineChart(ts, [{name:'human share', color:'#9146ff', vals:c.human, fill:true}], {min:0, max:100, unit:'%', dec:0}) +
+      kpis([[fmtN(avgv(c.human), 0) + '%', 'avg human share'],
+            [cleanFramePct == null ? '—' : cleanFramePct.toFixed(0) + '%', 'frames fly-only']])) : '',
+    BC[1] || '',
+    BC[2] || '',
+    BC[3] || '',
+    viewersCard(VW),
+    thoughtsCard(th),
+    card('Learning', 'Dopamine from <b>!pain / !pleasure</b> shifts the fly\'s opinion of people and exits ' +
+      '(−1 avoids … +1 seeks). This is the real learning curve.',
+      hasLearn ? lineChart(ts, [{name:'people', color:'#43b581', vals:c.people}, {name:'exits', color:'#f0a93b', vals:c.exits}],
+                   {min:-1, max:1, dec:3, ydec:1, refs:[{y:0, color:'var(--faint)'}]}) +
+        `<table style="margin-top:10px"><tr><td style="color:var(--faint)"></td><td style="color:var(--faint)">toward</td><td style="color:var(--faint)">away</td></tr>
+          <tr><td>people</td>${tw(lastv(r.map(x => x.toward_person)), lastv(r.map(x => x.away_from_person)))}</tr>
+          <tr><td>exits</td>${tw(lastv(r.map(x => x.toward_exit)), lastv(r.map(x => x.away_from_exit)))}</tr>
+          <tr><td>pain / pleasure given <span style="color:var(--faint)">(since game restart)</span></td><td>${lastv(r.map(x => x.pain)) ?? '—'}</td><td>${lastv(r.map(x => x.pleasure)) ?? '—'}</td></tr>
+          ${hasAttrib ? `<tr><td>&nbsp;· from chat</td><td>${lastv(r.map(x => x.human_pain)) ?? '—'}</td><td>${lastv(r.map(x => x.human_pleasure)) ?? '—'}</td></tr>
+          <tr><td>&nbsp;· from the game</td><td>${lastv(r.map(x => x.game_pain)) ?? '—'}</td><td>${lastv(r.map(x => x.game_pleasure)) ?? '—'}</td></tr>
+          <tr><td>&nbsp;· stillness rule (60 s still)</td><td>${lastv(r.map(x => x.rule_pain)) ?? '—'}</td><td>—</td></tr>` : ''}</table>
+         <p style="margin-top:8px">Turn counts reset when the game restarts. An opinion that never changes behaviour is weak evidence.</p>`
+      : '<div style="color:var(--faint);font-size:12px">No learning data in this window yet.</div>'),
+    card('Neural activity', 'Spikes per minute across 139,255 simulated neurons.',
+      lineChart(ts, [{name:'spikes', color:'#a06bff', vals:c.spikes.map(v => v == null ? null : v / 1e6), fill:true}],
+                {min:0, unit:'M/min', dec:2, ydec:0}) +
+      kpis([[fmtN(avgv(c.spikes) / 1e6, 1) + 'M', 'avg / min'],
+            [fmtN(Math.max(...c.spikes.filter(v => v != null)) / 1e6, 1) + 'M', 'peak / min']])),
+    card('Exploration', 'Furthest area reached and distinct areas seen. A flat line for hours means the fly is looping.',
+      lineChart(ts, [{name:'furthest area reached', color:'#a06bff', vals:c.furthest, fill:true}],
+                {dec:0, legend:true}) +
+      kpis([[fmtN(lastv(c.furthest)), 'furthest'], [fmtN(lastv(c.areas)), 'areas'],
+            [fmtN(lastv(r.map(x => x.stalled))), 'stall events']])),
+    card('Time in battle', 'Share of each interval spent in a battle rather than the overworld.',
+      lineChart(ts, [{name:'in battle', color:'#f0a93b', vals:c.battle, fill:true}], {min:0, max:100, unit:'%', dec:0}) +
+      kpis([[fmtN(avgv(r.map(x => x.battle)) * 100, 0) + '%', 'of this window']])),
+  ].join('');
+  tipify(el);
+}
+
+// ---- live view: one loop, next frame as soon as the last lands (~4/s max)
+let src = 'live', liveOn = false, liveTimer = null;
+const liveImg = document.getElementById('live');
+const liveState = t => document.getElementById('livestate').textContent = t;
+const driveShown = () => document.getElementById('drive').style.display !== 'none';
+function nextFrame(){
+  clearTimeout(liveTimer); liveTimer = null;
+  if (src !== 'live' || document.hidden || !driveShown()) { liveOn = false;
+    if (document.hidden && typeof phold === 'function') phold('live view paused while this tab is in the background');
+    return; }
+  liveOn = true;
+  liveImg.src = '/api/frame?t=' + Date.now();
+}
+const phold = t => { const p = document.getElementById('livephold'); p.textContent = t; p.style.display = t ? '' : 'none'; };
+liveImg.onload  = () => { liveState('live'); phold(''); liveImg.style.visibility = 'visible';
+                          liveTimer = setTimeout(nextFrame, 250); };
+liveImg.onerror = () => { liveState('OBS not answering, retrying…'); liveImg.style.visibility = 'hidden';
+                          phold('OBS not answering, retrying…'); liveTimer = setTimeout(nextFrame, 2000); };
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !liveOn) nextFrame(); });
+// Twitch only allows its player on https pages or localhost, so offer it only here.
+const twitchOk = ['localhost', '127.0.0.1'].includes(location.hostname);
+if (!twitchOk) document.getElementById('srctw').style.display = 'none';
+if (matchMedia('(pointer:coarse)').matches) document.getElementById('kbhint').style.display = 'none';
+function setSrc(s){
+  if (s === src) return;
+  src = s;
+  document.getElementById('srclive').classList.toggle('on', s === 'live');
+  document.getElementById('srctw').classList.toggle('on', s === 'twitch');
+  const tw = document.getElementById('twitch');
+  liveImg.style.display = s === 'live' ? '' : 'none';
+  tw.style.display = s === 'twitch' ? '' : 'none';
+  if (s === 'twitch') {
+    tw.src = 'https://player.twitch.tv/?channel=' + encodeURIComponent(SITE.twitch_channel || '') + '&muted=true&parent=' + location.hostname;
+    liveState('several seconds behind');
+  } else { tw.removeAttribute('src'); nextFrame(); }
+}
+// ================================================================ tooltips
+const TIP = document.createElement('div'); TIP.id = 'htip'; document.body.appendChild(TIP);
+let tipEl = null;
+function showTip(el, x, y){
+  tipEl = el; TIP.innerHTML = el.dataset.tip; TIP.classList.add('on');
+  const r = TIP.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+  let lx = x + 14, ly = y + 16;
+  if (lx + r.width > vw - 8) lx = Math.max(8, x - r.width - 14);
+  if (ly + r.height > vh - 8) ly = Math.max(8, y - r.height - 12);
+  TIP.style.left = lx + 'px'; TIP.style.top = ly + 'px';
+}
+function hideTip(){ tipEl = null; TIP.classList.remove('on'); }
+document.addEventListener('mousemove', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (el && el.dataset.tip) showTip(el, e.clientX, e.clientY); else if (tipEl) hideTip();
+});
+document.addEventListener('touchstart', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (!el || el.closest('button')) { hideTip(); return; }
+  const t = e.touches[0]; if (tipEl === el) hideTip(); else showTip(el, t.clientX, t.clientY);
+}, {passive: true});
+document.addEventListener('scroll', hideTip, {passive: true});
+/* Card explanations move off the page and into the heading's tooltip. */
+function tipify(root){
+  root.querySelectorAll('.chart > h3').forEach(h3 => {
+    const p = h3.nextElementSibling;
+    if (!p || p.tagName !== 'P' || h3.dataset.tip) return;
+    h3.dataset.tip = p.innerHTML; p.remove();
+    h3.insertAdjacentHTML('beforeend', '<i class="info">i</i>');
+  });
+}
+
+// ================================================================ live brain card
+const LIVE_REG = [['eyes', '#5b8def', 'Optic lobe: raw light from the game screen.'],
+  ['vision', '#5b8def', 'Visual projection neurons carrying what the eyes see into the central brain.'],
+  ['senses', '#43b581', 'All other sensory neurons: smell of people and doors, touch, hearing.'],
+  ['navigation', '#a06bff', 'Central complex: the fly\'s compass and steering centre.'],
+  ['memory', '#f0a93b', 'Kenyon cells of the mushroom body, where smells are stored and learned.'],
+  ['memory out', '#f0a93b', 'Mushroom-body output neurons: the learned verdict on what it smells.'],
+  ['reward', '#43b581', 'PAM dopamine neurons. Fire on pleasure.'],
+  ['punishment', '#ec4a4f', 'PPL1 dopamine neurons. Fire on pain.'],
+  ['descending', '#9292a3', 'Descending neurons: commands from brain to body.'],
+  ['motor', '#9292a3', 'Motor neurons: the readout that becomes key presses.']];
+const LIVE = {hist: {}, max: {}, turns: null, el: null, timer: null, last: null, thought: null};
+function liveBuild(){
+  const el = document.createElement('div'); el.className = 'live'; el.id = 'livecard';
+  el.innerHTML = `<h3 data-tip="The simulated brain, updated twice a second. Bars ease between readings; each bar is scaled to that region's own recent peak, so you see change, not absolute size (hover a bar for Hz)."><span class="pulse"></span>Brain &amp; senses, live<i class="info">i</i>
+      <span id="lv-src" style="margin-left:auto;font-size:11px;color:var(--faint);font-weight:400"></span></h3>
+    <div class="top"><div class="thought" id="lv-th" data-tip="What the fly is doing, in its own words (the caption on stream).">…</div>
+      <div class="meta" id="lv-meta"></div></div>
+    <div class="lgrid">
+      <div><div class="lsub">Brain regions</div>${LIVE_REG.map(([k, c, tip]) => `
+        <div class="rg" data-tip="<b>${k}</b>: ${tip}<br><span id='tip-${k.replace(' ', '_')}'></span>"><span class="l">${k}</span>
+          <span class="t"><span class="f" id="lv-r-${k.replace(' ', '_')}" style="width:0;background:${c}"></span></span>
+          <span class="n" id="lv-n-${k.replace(' ', '_')}">—</span></div>`).join('')}
+        <svg class="spark" id="lv-spark" viewBox="0 0 300 36" preserveAspectRatio="none"
+             data-tip="Last minute: navigation (purple), reward (green) and punishment (red)."></svg></div>
+      <div><div class="lsub">Senses (left · right)</div>
+        ${['people', 'doors', 'obstacle'].map(k => `<div class="ss" data-tip="How strongly the fly senses ${k === 'doors' ? 'doors/exits' : k} on each side.">
+          <span class="t L"><span class="f" id="lv-s-${k}-l" style="width:0;background:${k === 'obstacle' ? '#ec4a4f' : k === 'doors' ? '#f0a93b' : '#43b581'}"></span></span>
+          <span class="c">${k}</span>
+          <span class="t R"><span class="f" id="lv-s-${k}-r" style="width:0;background:${k === 'obstacle' ? '#ec4a4f' : k === 'doors' ? '#f0a93b' : '#43b581'}"></span></span></div>`).join('')}
+        <div class="lsub" style="margin-top:14px" data-tip="Overall mood: −1 scared … +1 happy. Pain and pleasure move it; learned opinions of what it smells hold it.">Mood <span id="lv-mood" style="text-transform:none;letter-spacing:0;color:var(--fg)"></span></div>
+        <div class="mood"><span class="needle" id="lv-needle" style="left:50%"></span></div>
+        <div class="mood-l"><span>scared</span><span>calm</span><span>happy</span></div>
+        <div class="keys" data-tip="Flashes on every turn and button press the brain makes. Green outline = the key it is holding now.">
+          ${['left', 'up', 'down', 'right', 'a', 'b'].map(k => `<span id="lv-k-${k}">${{left:'◀', right:'▶', up:'▲', down:'▼', a:'A', b:'B'}[k]}</span>`).join('')}</div>
+      </div></div>`;
+  return el;
+}
+function liveMount(){
+  if (!LIVE.el) LIVE.el = liveBuild();
+  const slot = driveShown() ? 'liveslot-drive' : (document.getElementById('science').style.display !== 'none' ? 'liveslot-science' : null);
+  if (slot && LIVE.el.parentElement !== document.getElementById(slot)) document.getElementById(slot).appendChild(LIVE.el);
+  return !!slot;
+}
+async function livePoll(){
+  clearTimeout(LIVE.timer);
+  const shown = liveMount();
+  if (document.hidden || !shown) { LIVE.timer = setTimeout(livePoll, 1500); return; }
+  let d = null; try { d = await (await fetch('/api/live')).json(); } catch(e) {}
+  if (d && d.regions) liveDraw(d);
+  LIVE.timer = setTimeout(livePoll, 500);
+}
+const $ = id => document.getElementById(id);
+function liveDraw(d){
+  const pulse = LIVE.el.querySelector('.pulse'); pulse.classList.remove('beat'); void pulse.offsetWidth; pulse.classList.add('beat');
+  $('lv-src').textContent = d.src === 'pi' ? 'live feed' : '';
+  for (const [k] of LIVE_REG){
+    const v = d.regions[k], row = $('lv-r-' + k.replace(' ', '_')).closest('.rg');
+    row.style.display = v == null ? 'none' : ''; if (v == null) continue;
+    const H = (LIVE.hist[k] ||= []); H.push(v); if (H.length > 120) H.shift();
+    const peak = Math.max(...H, 0.05);
+    const id = k.replace(' ', '_');
+    $('lv-r-' + id).style.width = Math.min(100, 100 * v / peak).toFixed(1) + '%';
+    $('lv-r-' + id).style.filter = v >= peak * .9 ? 'brightness(1.35)' : 'none';
+    $('lv-n-' + id).textContent = v >= 10 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : v.toFixed(2);
+  }
+  const s = d.senses || {}, smax = 60;
+  for (const k of ['people', 'doors', 'obstacle']){
+    const [l, r] = s[k] || [0, 0];
+    $('lv-s-' + k + '-l').style.width = Math.min(100, 100 * Math.abs(l || 0) / smax) + '%';
+    $('lv-s-' + k + '-r').style.width = Math.min(100, 100 * Math.abs(r || 0) / smax) + '%';
+  }
+  const m = d.mood || {}, val = m.valence;
+  if (val != null) $('lv-needle').style.left = (50 + 50 * Math.max(-1, Math.min(1, val))).toFixed(1) + '%';
+  $('lv-mood').textContent = m.label ? '· ' + m.label + (val != null ? ' (' + (val >= 0 ? '+' : '') + val.toFixed(2) + ')' : '') : '';
+  if (d.thinking && d.thinking !== LIVE.thought){
+    const th = $('lv-th'); th.classList.add('fade');
+    setTimeout(() => { th.textContent = d.thinking; th.classList.remove('fade'); }, 180);
+    LIVE.thought = d.thinking;
+  }
+  const meta = [];
+  if (d.lead) meta.push(d.lead);
+  if (d.battle) meta.push('<span style="color:var(--warn)">in battle</span>');
+  else if (d.walking) meta.push('<span style="color:var(--ok)">walking</span>');
+  if (d.still_s) meta.push('still ' + Math.round(d.still_s) + 's');
+  if (d.place) meta.push(isNaN(d.place) ? d.place : 'map ' + d.place);
+  $('lv-meta').innerHTML = meta.join(' · ');
+  // flash each key the brain pressed since the last reading; outline the one held now
+  const T = d.turns || {}, P = LIVE.turns;
+  if (P) [['left', 'left'], ['right', 'right'], ['a', 'a'], ['b', 'b']].forEach(([k, id]) => {
+    if ((T[k] || 0) > (P[k] || 0)) { const e = $('lv-k-' + id); e.classList.add('hit'); setTimeout(() => e.classList.remove('hit'), 220); }
+  });
+  LIVE.turns = T;
+  ['left', 'right', 'up', 'down', 'a', 'b'].forEach(k => $('lv-k-' + k).classList.toggle('cur', d.keys === k));
+  // sparkline: navigation / reward / punishment over the last minute, each on its own scale
+  const sp = $('lv-spark'), lines = [['navigation', '#a06bff'], ['reward', '#43b581'], ['punishment', '#ec4a4f']];
+  sp.innerHTML = lines.map(([k, c]) => {
+    const H = LIVE.hist[k] || []; if (H.length < 2) return '';
+    const mx = Math.max(...H, .05);
+    return `<polyline fill="none" stroke="${c}" stroke-width="1.5" vector-effect="non-scaling-stroke" points="${H.map((v, i) =>
+      (i / 119 * 300).toFixed(1) + ',' + (34 - 32 * v / mx).toFixed(1)).join(' ')}"/>`;
+  }).join('');
+}
+livePoll();
+tipify(document);
+
+{ let t = location.hash.slice(1); if (!t) { try { t = localStorage.getItem('flytab'); } catch(e) {} }
+  showTab(t || 'status'); }
+tick(); setInterval(tick, 5000);
+timeline(); setInterval(timeline, 60000);
+setInterval(() => { if (document.getElementById('science').style.display !== 'none') science(); }, 60000);
+</script>
+</body>
+</html>

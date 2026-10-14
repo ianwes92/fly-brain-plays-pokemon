@@ -1,0 +1,8 @@
+[Unit]
+Description=flybrain daily backup of the run to a private GitHub repo (no credentials)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/flybrain/play/backup.sh
+TimeoutStartSec=600

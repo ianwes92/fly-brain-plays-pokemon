@@ -1,0 +1,13 @@
+[Unit]
+Description=flybrain watchdog (restarts the game if the emulator stops advancing)
+# (No After=default.target: default.target waits for every unit it wants, so
+# one slow oneshot delayed the watchdog 6 min on the 2026-10-06 reboot test.)
+
+[Service]
+Type=simple
+ExecStart=%h/flybrain/play/watchdog.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

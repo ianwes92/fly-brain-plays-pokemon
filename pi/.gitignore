@@ -1,0 +1,23 @@
+# never commit: data, saves, ROMs, weights, logs, runtime output
+data/*
+!data/experiments/
+data/experiments/*.jsonl
+data/experiments/*.log
+data/experiments/*.txt
+data/experiments/battery/
+runs/
+shorts/
+play/*.gba
+play/*.sav
+play/*.ss*
+play/*.npz
+play/*.log
+play/current_game
+play/ethogram_start*
+flybrain/*.so
+tests/frames/
+__pycache__/
+*.pyc
+# credentials live in ~/.config/flybrain/, never here
+config/*.json
+!config/*.example.json

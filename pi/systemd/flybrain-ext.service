@@ -1,0 +1,13 @@
+[Unit]
+Description=flybrain live numbers for the Twitch science panel extension
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/flybrain/play/ext_publisher.py run
+Restart=always
+RestartSec=30
+StandardOutput=append:%h/flybrain/play/ext.log
+StandardError=append:%h/flybrain/play/ext.log
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fly Brain HUD</title>
+<style>
+  /* OBS browser source, 1920x1080, transparent. Draws every piece of the stream's UI except
+     the game picture (its own source) and the brain map (brainviz). Data: /api/live (2-4 Hz),
+     /api/overlay (Pi's overlay state, when available), /api/inputs (milestones). */
+  :root { --bg: rgba(10, 11, 18, 0.92); --card: #151722; --line: #262a3a; --fg: #eef0f7; --dim: #9aa0b8;
+          --faint: #5d6380; --ok: #3ddc84; --warn: #ffb547; --bad: #ff4d5a; --acc: #b066ff; --tw: #9146ff; }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+  body { font: 22px/1.25 "Segoe UI", system-ui, sans-serif; color: var(--fg); }
+  .abs { position: absolute; }
+  .panel { background: var(--bg); }
+  .k { font-size: 15px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+  /* --- over the game --- */
+  #thought { right: 786px; top: 16px; text-align: right; padding: 8px 16px; border-radius: 10px; background: rgba(8, 9, 15, 0.82);
+             font-size: 26px; font-weight: 600; max-width: 760px; transition: opacity .25s; }
+  #sees { left: 818px; top: 74px; padding: 10px 14px; border-radius: 10px; background: rgba(8, 9, 15, 0.82); width: 290px; box-sizing: border-box; }
+  .srow { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 10px; margin: 4px 0; font-size: 17px; }
+  .lr { position: relative; height: 10px; background: #222639; border-radius: 5px; overflow: hidden; }
+  .lr i { position: absolute; top: 0; bottom: 0; border-radius: 5px; transition: width .4s; }
+  .lr .l { right: 50%; } .lr .r { left: 50%; }
+  .lr::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 2px; background: #fff7; }
+  #chat { left: 818px; top: 204px; width: 316px; padding: 10px 14px; border-radius: 10px; background: #0b0c14;
+          border: 1px solid #343a55; box-sizing: border-box; }
+  #chat .row { transition: opacity .25s linear; display: flex; align-items: center; gap: 10px; font-size: 20px; margin: 4px 0; white-space: nowrap; }
+  #chat .who { color: #fff; font-weight: 700; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+  #chat .key { margin-left: auto; background: #c9a8ff; color: #0b0c14; border-radius: 7px; padding: 0 9px; font-weight: 800; }
+  #chat .n { color: var(--dim); font-size: 15px; }
+  #chat .row.new .key { box-shadow: 0 0 12px #9146ffcc; }
+  #banner { left: 576px; top: 150px; transform: translateX(-50%); padding: 14px 30px; border-radius: 14px; text-align: center;
+            background: rgba(8, 9, 15, 0.88); border: 2px solid var(--warn); display: none; }
+  #banner .t { font-size: 34px; font-weight: 800; color: var(--warn); letter-spacing: 1px; }
+  #banner .s { font-size: 22px; color: var(--fg); margin-top: 4px; }
+  #bar { left: 0; top: 768px; width: 1152px; height: 78px; background: #0b0c14; display: flex; border-bottom: 1px solid var(--line);
+         flex-direction: column; justify-content: center; gap: 6px; padding: 0 20px; box-sizing: border-box; }
+  #bar .h { display: flex; align-items: center; gap: 8px; font-size: 22px; white-space: nowrap; }
+  #bar .h .lab { color: var(--warn); font-weight: 800; letter-spacing: .6px; margin-right: 6px; }
+  #bar .c { background: #1e2233; border: 1px solid #3a4060; color: #fff; font-weight: 700; border-radius: 8px; padding: 1px 9px; }
+  #bar .c.tr { border-color: #6b3d8f; background: #2a1d3a; }
+  #bar .g { color: var(--dim); font-size: 18px; margin: 0 10px 0 2px; }
+  #bar .t { font-size: 20px; color: #e3e6f2; transition: opacity .4s; }
+  #bar.alert { box-shadow: inset 6px 0 0 var(--warn); background: #1f1708; }
+  #bar.alert .t { color: var(--warn); font-weight: 700; font-size: 21px; }
+  #bar.alert .t b { color: #fff; }
+  #bar.good { box-shadow: inset 6px 0 0 var(--ok); background: #0c1d14; }
+  #bar.good .t { color: var(--ok); font-weight: 700; font-size: 21px; }
+  @keyframes pulse { 50% { box-shadow: inset 6px 0 0 #ffd27a; } }
+  #bar.alert { animation: pulse 1.4s ease-in-out infinite; }
+  /* --- under the brain --- */
+  #feed { left: 1152px; top: 670px; width: 768px; height: 98px; padding: 8px 18px; box-sizing: border-box; }
+  #feed .row { display: flex; gap: 14px; font-size: 18px; white-space: nowrap; overflow: hidden; }
+  #feed .ago { color: var(--faint); width: 72px; flex: none; }
+  #feed .chead { font-size: 15px; letter-spacing: 1.6px; color: #c9a8ff; font-weight: 700; margin-bottom: 6px; }
+  #feed .crow { display: flex; gap: 10px; flex-wrap: nowrap; overflow: hidden; }
+  #feed .in { display: flex; align-items: center; gap: 7px; background: #191c2b; border: 1px solid #343a55; border-radius: 10px;
+              padding: 4px 10px; flex: none; transition: opacity .8s; }
+  #feed .in .w { font-size: 18px; font-weight: 700; color: #fff; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #feed .in .kk { font-size: 20px; font-weight: 800; color: #0b0c14; background: #c9a8ff; border-radius: 6px; padding: 0 8px; }
+  #feed .in .x { font-size: 15px; color: var(--dim); }
+  #feed .in.new { border-color: #c9a8ff; box-shadow: 0 0 12px #9146ff88; }
+  /* --- bottom strip --- */
+  #team { left: 0; top: 846px; width: 1152px; height: 234px; padding: 10px 20px; box-sizing: border-box; }
+  #mood { left: 1152px; top: 768px; width: 768px; height: 312px; padding: 16px 20px; box-sizing: border-box;
+          border-left: 1px solid var(--line); }
+  .hdr { display: flex; align-items: baseline; gap: 16px; margin-bottom: 10px; }
+  .hdr .title { font-size: 26px; font-weight: 800; letter-spacing: 1px; }
+  .hdr .meta { margin-left: auto; color: var(--dim); font-size: 19px; display: flex; gap: 22px; }
+  .run { color: var(--warn); font-weight: 700; font-size: 19px; letter-spacing: .5px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; height: 74px; box-sizing: border-box; }
+  .card .n { display: flex; justify-content: space-between; font-size: 21px; font-weight: 700; }
+  .card .hp { height: 9px; background: #222639; border-radius: 5px; margin-top: 7px; overflow: hidden; }
+  .card .hp i { display: block; height: 100%; border-radius: 5px; transition: width .5s; }
+  .card .v { text-align: right; color: var(--dim); font-size: 16px; margin-top: 3px; }
+  .card.empty { opacity: .35; }
+  #diary .drow { display: flex; gap: 18px; font-size: 21px; margin: 6px 0; }
+  #diary .ago { color: var(--faint); width: 60px; flex: none; }
+  .card .nick { font-size: 14px; color: var(--faint); font-weight: 400; margin-left: 6px; }
+  .srw { display: grid; grid-template-columns: 170px 1fr; align-items: center; gap: 16px; margin-top: 12px; }
+  .sl { color: var(--dim); font-size: 21px; }
+  .sb { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: #222639; }
+  .sb i { display: block; height: 100%; transition: width .6s; }
+  .sn { margin-left: 186px; margin-top: 6px; font-size: 19px; color: var(--fg); }
+  #toast { left: 576px; top: 600px; transform: translateX(-50%); padding: 10px 24px; border-radius: 12px; font-size: 26px; font-weight: 800;
+           background: rgba(8, 9, 15, 0.88); border: 2px solid var(--ok); color: var(--ok); display: none; letter-spacing: .5px; }
+  .moodbar { position: relative; height: 16px; border-radius: 8px; margin: 18px 0 6px;
+             background: linear-gradient(90deg, #ff4d5a 0%, #ffb547 30%, #4a4a57 50%, #7fd1a6 70%, #3ddc84 100%); }
+  .needle { position: absolute; top: -8px; width: 4px; height: 32px; background: #fff; border-radius: 2px;
+            box-shadow: 0 0 10px #fff9; transition: left .6s cubic-bezier(.3,.7,.3,1); }
+  .ml { display: flex; justify-content: space-between; color: var(--faint); font-size: 16px; }
+  .smell { display: grid; grid-template-columns: 90px 1fr 90px 1fr; gap: 10px 14px; align-items: center; margin-top: 16px; font-size: 18px; }
+  .op { position: relative; height: 10px; background: #222639; border-radius: 5px; }
+  .op i { position: absolute; top: -5px; width: 3px; height: 20px; background: #fff; transition: left .6s; }
+  .op::before { content: ''; position: absolute; left: 25%; top: -2px; width: 2px; height: 14px; background: var(--bad); opacity: .8; }
+  .exp { font-size: 17px; font-weight: 700; color: #ffd27a; background: #3a2b0f; border: 1px solid #7a5a1a; border-radius: 999px; padding: 2px 12px; display: none; }
+  .presses { display: flex; gap: 10px; margin-top: 18px; align-items: center; }
+  .presses .lbl { color: var(--faint); font-size: 16px; margin-right: 6px; white-space: nowrap; }
+  .presses span { width: 46px; height: 40px; border-radius: 8px; border: 1px solid var(--line); display: grid; place-items: center;
+                  color: var(--faint); font-weight: 800; transition: background .5s, color .5s, border-color .5s; }
+  /* leaning (what the fly's motor wants) = faint dashed outline; a real press = solid colour flash */
+  .presses span.cur { border: 1px dashed #8a90b0; color: var(--dim); }
+  .presses span.hit { color: #0b0c14; transform: scale(1.14); transition: none; border-color: transparent; }
+  .presses span.hit.fly { background: #bfe6ff; box-shadow: 0 0 14px #7fd3ffaa; }
+  .presses span.hit.together { background: #3ddc84; box-shadow: 0 0 14px #3ddc84aa; }
+  .presses span.hit.against { background: #ff4d5a; box-shadow: 0 0 14px #ff4d5aaa; color: #fff; }
+  .presses span.hit.apart { background: #4f9dff; box-shadow: 0 0 14px #4f9dffaa; color: #fff; }
+  .presses span.hit.full { background: #b066ff; box-shadow: 0 0 14px #b066ffaa; color: #fff; }
+  .presses span { transition: transform .35s, background .5s, color .5s, border-color .5s, box-shadow .5s; }
+  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 15px; color: var(--dim); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  #chat .key.together { background: #3ddc84; } #chat .key.against { background: #ff4d5a; color: #fff; }
+  #chat .key.apart { background: #4f9dff; color: #fff; } #chat .key.full { background: #b066ff; color: #fff; }
+  #chat .key.fly_idle { background: #c9a8ff; }
+  .presses span.lbl, .presses span.by { width: auto; height: auto; border: none; display: inline; }
+  .lead { margin-top: 18px; font-size: 18px; color: var(--dim); white-space: nowrap; overflow: hidden; }
+  .lead b { color: var(--fg); font-weight: 600; }
+  .presses .by { margin-left: auto; color: var(--dim); font-size: 17px; white-space: nowrap; }
+</style>
+</head>
+<body>
+<!-- over the game -->
+<div id="thought" class="abs">…</div>
+<div id="sees" class="abs">
+  <div class="k" style="margin-bottom:4px">What it senses <span style="float:right">L | R</span></div>
+  <div class="srow"><span>walls</span><span class="lr"><i class="l" id="s-obstacle-l" style="background:#ff4d5a"></i><i class="r" id="s-obstacle-r" style="background:#ff4d5a"></i></span></div>
+  <div class="srow"><span>people</span><span class="lr"><i class="l" id="s-people-l" style="background:#3ddc84"></i><i class="r" id="s-people-r" style="background:#3ddc84"></i></span></div>
+  <div class="srow"><span>doors</span><span class="lr"><i class="l" id="s-doors-l" style="background:#ffb547"></i><i class="r" id="s-doors-r" style="background:#ffb547"></i></span></div>
+</div>
+<div id="chat" class="abs"><div class="k" style="margin-bottom:4px">Chat inputs</div><div id="chat-rows"></div></div>
+<div id="banner" class="abs"><div class="t"></div><div class="s"></div></div>
+<div id="bar" class="abs"><div class="h"><span class="lab">TYPE IN CHAT</span>
+  <span class="c">!left</span><span class="c">!right</span><span class="c">!up</span><span class="c">!down</span><span class="g">move</span>
+  <span class="c">!a</span><span class="c">!b</span><span class="g">buttons</span>
+  <span class="c tr">!pain</span><span class="c tr">!pleasure</span><span class="g">train its brain</span></div>
+  <div class="t" id="tick">nobody scripted it: it sees, decides and walks on its own</div></div>
+<!-- under the brain -->
+<div id="feed" class="abs panel"></div>
+<!-- bottom strip -->
+<div id="team" class="abs panel">
+  <div class="hdr"><span class="title">TEAM</span><span class="run" id="run"></span><span class="exp" id="exp"></span>
+    <span class="meta"><span id="badges">Badges —</span><span id="caught">Caught —</span><span id="place"></span></span></div>
+  <div class="cards" id="cards"></div>
+  <div id="diary" style="display:none"></div>
+  <div id="sci" style="display:none">
+    <div class="srw"><span class="sl">Steps today</span><span class="sb"><i id="sc-fly" style="background:var(--ok)"></i><i id="sc-chat" style="background:var(--tw)"></i></span></div>
+    <div class="sn" id="sc-steps"></div>
+    <div class="srw"><span class="sl">Who taught it</span><span class="sb" id="sc-taught"></span></div>
+    <div class="sn" id="sc-taught-l"></div>
+  </div>
+</div>
+<div id="toast" class="abs"></div>
+<div id="mood" class="abs panel">
+  <div class="hdr"><span class="title">MOOD</span><span class="meta" style="font-size:24px;font-weight:700" id="mlabel">—</span></div>
+  <div class="moodbar"><span class="needle" id="needle" style="left:50%"></span></div>
+  <div class="ml"><span>scared</span><span>calm</span><span>happy</span></div>
+  <div class="smell" id="opinions" style="display:none"><span>people</span><span class="op"><i id="op-people" style="left:50%"></i></span>
+                     <span style="text-align:right">doors</span><span class="op"><i id="op-exits" style="left:50%"></i></span></div>
+  <div class="presses"><span class="lbl">FLY PRESSES</span>
+    <span id="k-left">◀</span><span id="k-up">▲</span><span id="k-down">▼</span><span id="k-right">▶</span><span id="k-a">A</span><span id="k-b">B</span>
+    <span class="by" id="by"></span></div>
+  <div class="legend"><span><i style="background:#bfe6ff"></i>fly</span><span><i style="background:#3ddc84"></i>chat with the fly</span>
+    <span><i style="background:#ff4d5a"></i>chat against it</span><span><i style="background:#4f9dff"></i>chat another way</span>
+    <span><i style="background:#b066ff"></i>chat in control</span><span style="margin-left:auto"><i style="border:1px dashed #8a90b0;background:none"></i>leaning</span></div>
+  <div class="lead" id="lead"></div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'})[c]);
+let prevTurns = null, lastThought = null;
+
+function sees(S) {
+  const max = 60;
+  for (const k of ['obstacle', 'people', 'doors']) {
+    const [l, r] = (S && S[k]) || [0, 0];
+    $('s-' + k + '-l').style.width = Math.min(50, 50 * Math.abs(l || 0) / max) + '%';
+    $('s-' + k + '-r').style.width = Math.min(50, 50 * Math.abs(r || 0) / max) + '%';
+  }
+}
+// who made the press: 'fly' | 'together' | 'against' | 'apart' | 'full'
+function pressWho(d) {
+  const pb = d.pressed_by, by = pb || d.by;
+  if (by === 'driver' || pb === 'driver') return 'full';
+  if (by === 'chat' || by === 'both') {
+    const pull = (O && O.pull) || 'together';
+    return {together: 'together', against: 'against', apart: 'apart', chat: 'full'}[pull] || 'together';
+  }
+  return 'fly';
+}
+const FLASH = {};
+function flash(k, who) {
+  const e = $('k-' + String(k).toLowerCase()); if (!e) return;
+  e.classList.remove('hit', 'fly', 'together', 'against', 'apart', 'full'); void e.offsetWidth;
+  e.classList.add('hit', who);
+  clearTimeout(FLASH[k]); FLASH[k] = setTimeout(() => e.classList.remove('hit', who), 380);
+}
+function live(d) {
+  if (d.thinking && d.thinking !== lastThought) {
+    const t = $('thought'); t.style.opacity = .2;
+    setTimeout(() => { t.textContent = d.thinking; t.style.opacity = 1; }, 160); lastThought = d.thinking;
+  }
+  sees(d.senses);
+  // in a battle the wild Pokémon sits top-right, and walls/people/doors mean nothing there
+  const inMenu = d.battle || (d.menu_s != null && d.menu_s > 0);     // battles and menus: senses are meaningless there
+  $('sees').style.display = inMenu ? 'none' : '';
+  $('chat').style.top = inMenu ? '74px' : '204px';
+  const m = d.mood || {};
+  if (m.valence != null) $('needle').style.left = (50 + 50 * Math.max(-1, Math.min(1, m.valence))) + '%';
+  $('mlabel').textContent = m.label || '—';
+  $('mlabel').style.color = m.valence > .15 ? 'var(--ok)' : m.valence < -.15 ? 'var(--bad)' : 'var(--fg)';
+  const T = d.turns || {};
+  const who = pressWho(d);
+  if (d.pressed && d.pressed !== 'none' && d.pressed !== '-') flash(d.pressed, who);
+  else if (prevTurns) for (const k of ['left', 'right', 'a', 'b'])
+    if ((T[k] || 0) > (prevTurns[k] || 0)) flash(k, who);
+  prevTurns = T;
+  for (const k of ['left', 'right', 'up', 'down', 'a', 'b']) $('k-' + k).classList.toggle('cur', d.keys === k);
+  $('by').textContent = d.by === 'chat' ? 'chat is steering' : d.by === 'driver' ? 'paid steering' : 'the fly decides';
+  if (d.place) $('place').textContent = d.place;
+}
+// Pi overlay state (team, banner, ticker, run...). Optional until the Pi publishes /panel/overlay.
+const TAUGHT = {human: ['chat', 'var(--tw)'], game: ['game', 'var(--warn)'], rule: ['stillness rule', 'var(--bad)'], before_ledger: ['before', 'var(--faint)']};
+let O = null, view = 'team', headerAlt = false;
+function overlay(o) {
+  O = o;
+  if (o.opinions && o.opinions.people != null) {
+    $('opinions').style.display = '';
+    $('op-people').style.left = (50 + 50 * Math.max(-1, Math.min(1, o.opinions.people))) + '%';
+    $('op-exits').style.left = (50 + 50 * Math.max(-1, Math.min(1, o.opinions.exits))) + '%';
+  }
+  const run = o.run || {}, pr = o.progress || {};
+  const ex = o.experiment;
+  if (ex && (ex.status === 'pending' || ex.status === 'running')) {
+    const at = ex.start ? new Date(ex.start).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) : '';
+    $('exp').textContent = '🧪 ' + ex.name + (ex.status === 'running' ? ' · running now' : at ? ' · ' + at : '');
+    $('exp').style.display = 'inline-block';
+  } else $('exp').style.display = 'none';
+  $('badges').textContent = 'Badges ' + (pr.badges ?? '—');
+  $('caught').textContent = 'Caught ' + (pr.caught ?? '—') + (pr.seen != null ? ' · Seen ' + pr.seen : '');
+  $('run').textContent = headerAlt && o.starters && o.starters.board ? "FLY'S FAVORITE: " + o.starters.board : (run.tag || '');
+  // team cards
+  const cards = [];
+  for (let i = 0; i < 6; i++) {
+    const p = (o.team || [])[i];
+    if (!p) { cards.push('<div class="card empty"></div>'); continue; }
+    const f = p.hp_max ? p.hp / p.hp_max : 0, col = f > .5 ? 'var(--ok)' : f > .2 ? 'var(--warn)' : 'var(--bad)';
+    const nick = p.nickname && p.nickname.trim() !== p.species ? `<span class="nick">“${esc(p.nickname.trim())}”</span>` : '';
+    cards.push(`<div class="card"><div class="n"><span>${esc(p.egg ? 'EGG' : p.species)}${nick}</span><span>Lv ${esc(p.lv)}</span></div>
+      <div class="hp"><i style="width:${(100 * f).toFixed(0)}%;background:${col}"></i></div><div class="v">${p.hp}/${p.hp_max}</div></div>`);
+  }
+  $('cards').innerHTML = cards.join('');
+  // science view
+  const sc = o.science || {};
+  if (sc.steps_today != null) {
+    const fs = sc.fly_share ?? 0;
+    $('sc-fly').style.width = (100 * fs) + '%'; $('sc-chat').style.width = (100 * (1 - fs)) + '%';
+    $('sc-steps').textContent = `${sc.steps_today.toLocaleString()} steps: ${Math.round(100 * fs)}% the fly alone, ${Math.round(100 * (1 - fs))}% chat helped`;
+    const T = Object.entries(sc.taught || {}).filter(([, v]) => v > 0);
+    $('sc-taught').innerHTML = T.map(([k, v]) => `<i style="width:${100 * v}%;background:${(TAUGHT[k] || [k, '#888'])[1]}"></i>`).join('');
+    $('sc-taught-l').textContent = T.map(([k, v]) => `${(TAUGHT[k] || [k])[0]} ${Math.round(100 * v)}%`).join('   ·   ');
+  }
+  // calls (stuck / lost) are the big banner; catches, level-ups and new runs are a toast
+  // calls (stuck / lost) and toasts (catch, level, new run) live in the chat strip, never over the game
+  const c = o.call, bn = o.banner && o.banner.text;
+  $('banner').style.display = 'none'; $('toast').style.display = 'none';
+  const bar = $('bar'), t = $('tick');
+  if (c && c.title) {
+    bar.className = 'abs alert'; ALERT = true;
+    t.innerHTML = esc(c.title) + (c.ask ? ' — <b>' + esc(c.ask) + '</b>' : ''); t.style.opacity = 1;
+  } else if (bn) {
+    bar.className = 'abs good'; ALERT = true;
+    t.textContent = '★ ' + bn; t.style.opacity = 1;
+  } else if (ALERT) { bar.className = 'abs'; ALERT = false; t.textContent = TICK[ti % TICK.length]; }
+  // chat bar
+  if (o.bar) {
+    if (o.bar.rotating && o.bar.rotating.length) TICK = o.bar.rotating;
+  }
+  if (o.leaderboard && o.leaderboard.length)
+    $('lead').innerHTML = '<span class="k" style="margin-right:12px">top drivers</span>' +
+      o.leaderboard.slice(0, 4).map(([w, n]) => `<b>${esc(w)}</b> ${n}`).join('&nbsp;&nbsp;·&nbsp;&nbsp;');
+  chatFeed(o.chat_feed || []);
+  // under the brain: the latest chat command if fresh, else the diary
+  const now = Date.now() / 1000, ago = t => { const s = now - t; return s < 90 ? 'now' : s < 5400 ? Math.round(s / 60) + 'm' : Math.round(s / 3600) + 'h'; };
+  const rows = (o.milestones || []).slice().sort((a, b) => b.t - a.t).map(x => ({t: x.t, text: x.text})).slice(0, 3);
+  // clip links are for Discord, not the screen; and the same event can be logged twice (with and without its clip)
+  const seenTxt = new Set();
+  const drows = (o.milestones || []).slice().sort((a, b) => b.t - a.t)
+    .map(x => ({t: x.t, text: String(x.text).replace(/\s*--\s*https?:\/\/\S+/, '').replace(/https?:\/\/\S+/, '').trim()}))
+    .filter(x => x.text && !seenTxt.has(x.text) && seenTxt.add(x.text)).slice(0, 3);
+  if (drows.length) $('feed').innerHTML = drows.map(x => `<div class="row"><span class="ago">${ago(x.t)}</span><span>${esc(x.text)}</span></div>`).join('');
+}
+// TEAM <-> SCIENCE every 20 s, run tag <-> favorite starter every 10 s
+const VIEWS = ['team', 'sci'], VTITLE = {team: 'TEAM', sci: 'SCIENCE', diary: 'DIARY'};
+setInterval(() => { view = VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length];
+  $('cards').style.display = view === 'team' ? '' : 'none'; $('sci').style.display = view === 'sci' ? '' : 'none';
+  $('diary').style.display = view === 'diary' ? '' : 'none';
+  document.querySelector('#team .title').textContent = VTITLE[view]; }, 15000);
+setInterval(() => { headerAlt = !headerAlt; if (O) overlay(O); }, 10000);
+// ---- chat inputs ----
+const ARROW = {UP: '▲', DOWN: '▼', LEFT: '◀', RIGHT: '▶', A: 'A', B: 'B', START: 'START', SELECT: 'SEL', PAIN: '!pain', PLEASURE: '!pleasure'};
+let chatSeen = null, CHAT = [];
+function chatFeed(feed) {
+  // prefer the epoch "ts" (added 2026-10-09); "t" is a monotonic clock that restarts with the game
+  const key = x => x.ts != null ? x.ts : x.t;
+  const items = feed.slice().sort((a, b) => key(a) - key(b));
+  const maxT = items.length ? key(items[items.length - 1]) : null;
+  const now = Date.now();
+  if (chatSeen !== null && maxT != null && maxT < chatSeen - 5) chatSeen = -Infinity;   // clock went backwards: a restart
+  const fresh = chatSeen === null ? items : items.filter(x => key(x) > chatSeen);
+  for (const x of fresh) {
+    const [who, key] = String(x.text).trim().split(/\s+/);
+    const at = chatSeen === null ? null : now;                    // unknown age for inputs from before this page loaded
+    CHAT.push({who, key: (key || '').toUpperCase(), at, vs: x.vs || ''});      // every input on its own line, no counting
+  }
+  if (maxT != null && (chatSeen === null || maxT > chatSeen)) chatSeen = maxT;
+  if (chatSeen === null) chatSeen = 0;
+  CHAT = CHAT.slice(-8);
+  drawChat();
+}
+function age(at) {
+  if (!at) return '';
+  const s = (Date.now() - at) / 1000;
+  return s < 10 ? 'now' : s < 60 ? Math.round(s) + 's' : s < 3600 ? Math.round(s / 60) + 'm' : Math.round(s / 3600) + 'h';
+}
+function drawChat() {
+  const now = Date.now(), LIFE = 20000;
+  const live = CHAT.filter(c => c.at && now - c.at < LIFE);          // inputs fade out over 20 s; quiet chat = no box
+  $('chat').style.display = live.length ? 'block' : 'none';
+  $('chat-rows').innerHTML = live.slice().reverse().slice(0, 5).map(c => {
+    const a = (now - c.at) / 1000;
+    return `<div class="row${a < 2.5 ? ' new' : ''}" style="opacity:${Math.max(0, 1 - a / 20).toFixed(2)}"><span class="who">${esc(c.who)}</span><span class="key ${esc(c.vs || '')}">${esc(ARROW[c.key] || c.key)}</span></div>`;
+  }).join('');
+}
+setInterval(drawChat, 250);
+
+let ALERT = false;
+let TICK = ['nobody scripted it: it sees, decides and walks on its own', 'your press is ADDED to what the fly already wants',
+            'type !pain or !pleasure to train it', 'the map on the right is its brain, live'], ti = 0;
+setInterval(() => { if (ALERT) return; const t = $('tick'); t.style.opacity = 0; setTimeout(() => { ti = (ti + 1) % TICK.length; t.textContent = TICK[ti]; t.style.opacity = 1; }, 400); }, 7000);
+
+async function pollLive() {
+  try { const d = await (await fetch('/api/live', {cache: 'no-store'})).json(); if (d && d.regions) live(d); } catch (e) {}
+  setTimeout(pollLive, 300);
+}
+async function pollOverlay() {
+  try { const o = await (await fetch('/api/overlay', {cache: 'no-store'})).json(); if (o && Object.keys(o).length) overlay(o); } catch (e) {}
+  setTimeout(pollOverlay, 1000);
+}
+// until the Pi publishes /panel/overlay: run + milestones from the panel's own data
+async function fallback() {
+  try {
+    const sci = await (await fetch('/api/science?hours=1')).json();
+    if (sci.run && !$('run').textContent) $('run').textContent = `${String(sci.run.name || '').toUpperCase()} · DAY ${sci.run.day} OF ${sci.run.of || 14}`;
+    const inp = await (await fetch('/api/inputs?hours=24')).json();
+    const L = ((inp.fly || {}).list || []).slice(-3).reverse();
+    if (false && L.length) $('feed').innerHTML = L.map(([k, t, by]) =>
+      `<div class="row"><span class="ago">${by === 'fly' ? 'fly' : 'chat'}</span><span>${esc(t)}</span></div>`).join('');
+  } catch (e) {}
+  setTimeout(fallback, 30000);
+}
+$('cards').innerHTML = Array(6).fill('<div class="card empty"></div>').join('');
+pollLive(); pollOverlay(); fallback();
+</script>
+</body>
+</html>

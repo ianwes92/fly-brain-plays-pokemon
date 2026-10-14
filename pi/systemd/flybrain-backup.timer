@@ -1,0 +1,12 @@
+[Unit]
+Description=flybrain daily backup at 04:30
+
+[Timer]
+OnCalendar=*-*-* 04:30:00
+# A backup missed while the Pi was off runs at the next boot: unlike a Story,
+# a late backup is still worth having.
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

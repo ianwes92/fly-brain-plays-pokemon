@@ -1,0 +1,10 @@
+[Unit]
+Description=flybrain Instagram Story (best recent milestone, or skip)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/flybrain/play/ig_story.py run
+TimeoutStartSec=1200
+StandardOutput=append:%h/flybrain/play/ig_story.log
+StandardError=append:%h/flybrain/play/ig_story.log

@@ -1,0 +1,52 @@
+# --- secrets: never commit ---
+config.json
+panel_token.txt
+panel_access.txt
+dbot.txt
+discord_ids.json
+se_token.txt
+ig_config.json
+tw_token*.json
+tw_device.json
+*.secret
+.env
+twitch.json
+threads.json
+youtube*.json
+client_secret*.json
+
+# --- runtime data and logs ---
+data/
+!pi/data/
+runs/
+reports/
+reports_posted.json
+*.log
+*.out
+*.jsonl
+supervisor_state.json
+history.jsonl
+behaviour.jsonl
+findings.json
+
+# --- game files: bring your own, never distribute ---
+*.gba
+*.sav
+*.ss
+*.ss[0-9]
+*.mb.npz
+*.npz
+
+# --- FlyWire data: download it yourself (CC-BY 4.0) ---
+*.feather
+*.parquet
+*.arrow
+
+# --- python / editor ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.bak*
+.DS_Store
+Thumbs.db

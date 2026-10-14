@@ -1,0 +1,17 @@
+[Unit]
+Description=flybrain Discord poster (go-live, milestones, hourly digest)
+# It reports on the game and the relay, but must NOT stop when they do: a
+# downtime alert is the one message that matters most when they are down.
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/flybrain/play/discord_poster.py
+Restart=always
+RestartSec=30
+# It holds webhook tokens; keep its output out of the shared journal body.
+StandardOutput=append:%h/flybrain/play/discord.log
+StandardError=append:%h/flybrain/play/discord.log
+
+[Install]
+WantedBy=default.target

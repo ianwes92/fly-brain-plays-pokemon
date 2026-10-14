@@ -1,0 +1,9 @@
+[Unit]
+Description=flybrain experiment battery: plan
+
+[Timer]
+OnCalendar=*-*-* 13:30:00 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target

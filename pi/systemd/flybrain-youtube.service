@@ -1,0 +1,14 @@
+[Unit]
+Description=flybrain YouTube promoter (title, description, chat promos pointing at Twitch)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/flybrain/play/youtube_promo.py
+Restart=always
+RestartSec=60
+StandardOutput=append:%h/flybrain/play/youtube.log
+StandardError=append:%h/flybrain/play/youtube.log
+
+[Install]
+WantedBy=default.target

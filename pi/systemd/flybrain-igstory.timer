@@ -1,0 +1,12 @@
+[Unit]
+Description=flybrain Instagram Stories at 12:00 and 20:00 New York time
+
+[Timer]
+OnCalendar=*-*-* 12:00:00 America/New_York
+OnCalendar=*-*-* 20:00:00 America/New_York
+# A slot missed while the Pi was off is skipped, not posted late: a Story at
+# 3am promotes nothing.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

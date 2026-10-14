@@ -1,0 +1,9 @@
+[Unit]
+Description=flybrain run clock, daily at 13:00 New York time
+
+[Timer]
+OnCalendar=*-*-* 13:00:00 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target

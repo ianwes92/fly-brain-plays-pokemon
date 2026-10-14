@@ -1,0 +1,9 @@
+[Unit]
+Description=flybrain: mend a dead Twitch login via a #fly-log link (no one at the Pi needed)
+
+[Service]
+Type=oneshot
+TimeoutStartSec=40min
+ExecStart=/usr/bin/python3 %h/flybrain/play/twitch_relogin.py
+StandardOutput=append:%h/flybrain/play/twitch_relogin.log
+StandardError=append:%h/flybrain/play/twitch_relogin.log

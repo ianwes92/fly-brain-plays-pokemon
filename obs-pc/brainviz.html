@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fly Brain Live</title>
+<style>
+  :root { --bg: #05060b; --fg: #e9ecf5; --dim: #8b90a6; --faint: #4c5068; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { font: 15px/1.3 "Segoe UI", system-ui, sans-serif; color: var(--fg); }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+/* Fly Brain Live: an OBS layer for the right-hand brain panel (768 x 770 at 1920x1080).
+   Every dot is a neuron. Until the Pi sends real FlyWire positions (/api/brain_layout), a
+   placeholder arranges the sample by anatomy. Activity comes from /api/live: per-region
+   firing rates now, real per-neuron spikes once the Pi adds "spk". */
+const W = 768, H = 670, DPR = Math.min(2, window.devicePixelRatio || 1);
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+cx.scale(DPR, DPR);
+
+const REG = {
+  eyes:        {name: 'EYES',        sub: 'optic lobes',      col: [66, 133, 255]},
+  vision:      {name: 'VISION',      sub: 'projection',       col: [40, 210, 255]},
+  senses:      {name: 'SMELL',       sub: 'antennal lobe',   col: [255, 105, 200]},
+  navigation:  {name: 'COMPASS',     sub: 'central cmplx',  col: [176, 102, 255]},
+  memory:      {name: 'MEMORY',      sub: 'mushroom body',    col: [255, 186, 60]},
+  'memory out':{name: 'MEMORY OUT',  sub: 'MB output',        col: [255, 120, 40]},
+  reward:      {name: 'REWARD',      sub: 'PAM dopamine',     col: [60, 220, 120]},
+  punishment:  {name: 'PUNISHMENT',  sub: 'PPL1 dopamine',    col: [255, 70, 85]},
+  descending:  {name: 'TO BODY',     sub: 'descending',       col: [235, 238, 255]},
+  motor:       {name: 'MOTOR',       sub: 'motor',    col: [255, 230, 90]},
+  central:     {name: 'CENTRAL',     sub: 'central brain',    col: [95, 100, 140]},
+  touch:       {name: 'TOUCH',       sub: 'hearing, bristles', col: [40, 230, 200]},
+};
+
+// ---------- placeholder anatomy (frontal view), in units: x -1..1, y -1..1 ----------
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const gauss = () => { let u = 0, v = 0; while (!u) u = rnd(); while (!v) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+const N = []; let REAL = false;
+const FOOTER = /footer=1/.test(location.search);
+function blob(reg, n, x, y, sx, sy, side) { for (let i = 0; i < n; i++) N.push({r: reg, x: x + gauss() * sx, y: y + gauss() * sy, side}); }
+function arc(reg, n, x0, y0, rx, ry, a0, a1, thick, side) {
+  for (let i = 0; i < n; i++) { const a = a0 + rnd() * (a1 - a0), t = (rnd() - .5) * thick;
+    N.push({r: reg, x: x0 + Math.cos(a) * (rx + t), y: y0 + Math.sin(a) * (ry + t), side}); } }
+for (const s of [-1, 1]) {
+  arc('eyes', 520, s * 0.62, 0.02, 0.26, 0.42, s < 0 ? Math.PI * .55 : -Math.PI * .45, s < 0 ? Math.PI * 1.45 : Math.PI * .45, 0.10, s);   // medulla crescent
+  arc('eyes', 260, s * 0.66, 0.02, 0.16, 0.30, s < 0 ? Math.PI * .6 : -Math.PI * .4, s < 0 ? Math.PI * 1.4 : Math.PI * .4, 0.06, s);      // lobula
+  blob('vision', 140, s * 0.40, 0.00, 0.05, 0.12, s);
+  blob('senses', 130, s * 0.13, 0.30, 0.05, 0.05, s);
+  blob('memory', 260, s * 0.20, -0.33, 0.07, 0.05, s);          // calyx
+  arc('memory', 120, s * 0.10, -0.12, 0.10, 0.18, -Math.PI * .5, Math.PI * .1, 0.03, s);  // peduncle/lobes
+  blob('memory out', 70, s * 0.09, -0.08, 0.03, 0.05, s);
+  blob('reward', 60, s * 0.05, 0.05, 0.025, 0.03, s);
+  blob('punishment', 40, s * 0.17, -0.40, 0.03, 0.025, s);
+}
+arc('navigation', 170, 0, 0.12, 0.13, 0.07, Math.PI * 1.05, Math.PI * 1.95, 0.03, 0);  // fan-shaped body
+blob('navigation', 50, 0, -0.02, 0.06, 0.012, 0);                                       // protocerebral bridge
+for (let i = 0; i < 900; i++) { const a = rnd() * 2 * Math.PI, rr = Math.sqrt(rnd());
+  N.push({r: 'central', x: Math.cos(a) * rr * 0.36, y: -0.02 + Math.sin(a) * rr * 0.40, side: 0}); }
+blob('descending', 120, 0, 0.47, 0.035, 0.07, 0);
+blob('motor', 40, 0, 0.60, 0.03, 0.03, 0);
+
+// projection to the canvas
+const OX = W / 2, OY = 380, SX = 225, SY = 315;
+for (const n of N) { n.px = OX + n.x * SX; n.py = OY + n.y * SY; n.e = 0; }
+const centroid = r => { const a = N.filter(n => n.r === r); return [a.reduce((p, n) => p + n.px, 0) / a.length, a.reduce((p, n) => p + n.py, 0) / a.length]; };
+const sideCentroid = (r, s) => { const a = N.filter(n => n.r === r && n.side === s); return [a.reduce((p, n) => p + n.px, 0) / a.length, a.reduce((p, n) => p + n.py, 0) / a.length]; };
+
+// ---------- region areas: coloured haze, drawn once per layout ----------
+let AREA = null;
+function buildAreas() {
+  const off = document.createElement('canvas'); off.width = W * DPR; off.height = H * DPR;
+  const g = off.getContext('2d'); g.scale(DPR, DPR); g.globalCompositeOperation = 'lighter';
+  for (const n of N) {
+    if (n.r === 'central') continue;
+    const c = REG[n.r].col, rad = n.r === 'eyes' ? 15 : 13;
+    const gr = g.createRadialGradient(n.px, n.py, 0, n.px, n.py, rad);
+    gr.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${n.r === 'eyes' ? 0.035 : 0.07})`);
+    gr.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+    g.fillStyle = gr; g.beginPath(); g.arc(n.px, n.py, rad, 0, 6.283); g.fill();
+  }
+  AREA = off;
+}
+
+// ---------- live data ----------
+let L = null, prevTurns = null, hist = {}, lastStim = null;
+const peak = r => Math.max(r === 'senses' ? 10 : 0.05, ...(hist[r] || [0.05]));
+async function poll() {
+  try {
+    const d = await (await fetch('/api/live', {cache: 'no-store'})).json();
+    if (d && d.regions) {
+      for (const [k, v] of Object.entries(d.regions)) {
+        const h = hist[k] ||= []; h.push(v); if (h.length > 240) h.shift();
+        const med = [...h].sort((a, b) => a - b)[h.length >> 1];
+        if (!(d.stim && d.stim.t) && (k === 'reward' || k === 'punishment') && h.length > 20 && v > Math.max(0.3, med * 3)) wave(k);
+      }
+      const T = d.turns || {};
+      if (prevTurns) {
+        if ((T.left || 0) > (prevTurns.left || 0)) pulse(-1);
+        if ((T.right || 0) > (prevTurns.right || 0)) pulse(1);
+        if ((T.a || 0) > (prevTurns.a || 0) || (T.b || 0) > (prevTurns.b || 0)) pulse(0);
+      }
+      prevTurns = T; L = d;
+      if (REAL) applySpikes(d.spk);
+      if (d.stim && d.stim.t && d.stim.t !== lastStim) { if (lastStim) wave(d.stim.kind === 'pleasure' ? 'reward' : 'punishment'); lastStim = d.stim.t; }
+    }
+  } catch (e) {}
+  setTimeout(poll, 250);
+}
+
+// ---------- effects ----------
+const pulses = [], waves = [];
+function pulse(side) {
+  const eye = side ? sideCentroid('eyes', side) : centroid('senses');
+  const vis = side ? sideCentroid('vision', side) : centroid('memory out');
+  pulses.push({pts: [eye, vis, centroid('navigation'), centroid('descending'), centroid('motor')], t0: performance.now(), dur: 900});
+}
+function wave(kind) {
+  const last = waves.length && waves[waves.length - 1];
+  if (last && performance.now() - last.t0 < 1500) return;
+  waves.push({kind, c: centroid('memory'), t0: performance.now(), dur: 1600});
+}
+
+// ---------- labels outside the brain, with leader lines ----------
+const LABELS = [   // [region, label x, label y, row, cluster: -1 left, 1 right, 0 all]
+  ['eyes', 18, 96, 'top', -1], ['vision', 168, 96, 'top', -1], ['memory', 318, 96, 'top', 1],
+  ['memory out', 468, 96, 'top', 1], ['punishment', 618, 96, 'top', 1],
+  ['touch', 18, 610, 'bot', -1], ['senses', 143, 610, 'bot', -1], ['reward', 268, 610, 'bot', 1],
+  ['navigation', 393, 610, 'bot', 0], ['descending', 518, 610, 'bot', 0], ['motor', 643, 610, 'bot', 0]];
+
+function frame(now) {
+  try { draw(now); } catch (e) { console.error(e); }
+  requestAnimationFrame(frame);
+}
+function draw(now) {
+  const dt = 1 / 60;
+  cx.globalCompositeOperation = 'source-over';
+  const g = cx.createRadialGradient(OX, OY, 40, OX, OY, 520);
+  g.addColorStop(0, '#0d1020'); g.addColorStop(1, '#04050a');
+  cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+
+  // firing: each neuron flashes with probability set by its region's live rate (scaled to that region's recent peak)
+  const R = Object.assign({}, (L && L.regions) || {});
+  if (R.eyes != null && R.vision == null) R.vision = R.eyes;
+  if (L && L.mood && R.senses == null) R.senses = 10 * Math.max(L.mood.smell_people || 0, L.mood.smell_exits || 0);
+  for (const n of N) {
+    const key = n.r === 'central' ? null : n.r;
+    const lvl = key && R[key] != null ? Math.min(1, R[key] / peak(key)) : 0.15;
+    if (!spkSeen && rnd() < lvl * 0.06) n.e = 1;
+    n.e *= 0.92;
+  }
+  // leader lines, drawn behind the neurons so they never cover them
+  for (const [r, lx0, ly, row, cl] of LABELS) {
+    let [tx, ty] = cl ? sideCentroid(r, cl) : centroid(r);
+    if (!isFinite(tx)) [tx, ty] = centroid(r);
+    if (!isFinite(tx)) continue;
+    const c = REG[r].col, lx = lx0 + 50;
+    const sy = ly + (row === 'top' ? 30 : -30);
+    // brighter while the region is active, never fainter than clearly visible on a compressed stream
+    const act = R[r] != null ? Math.min(1, R[r] / peak(r)) : 0;
+    cx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.55 + 0.4 * act})`; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(lx, sy); cx.lineTo(tx, ty); cx.stroke();
+    cx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},0.95)`; cx.beginPath(); cx.arc(tx, ty, 4.5, 0, 6.283); cx.fill();
+    cx.strokeStyle = 'rgba(5,6,11,0.9)'; cx.lineWidth = 1.5; cx.stroke();
+  }
+  // region areas (tinted haze), then the neurons on top
+  if (!AREA) buildAreas();
+  cx.drawImage(AREA, 0, 0, W, H);
+  // base: dim dots
+  for (const n of N) { const c = REG[n.r].col; cx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},0.34)`; cx.fillRect(n.px - 1.3, n.py - 1.3, 2.6, 2.6); }
+  // glow
+  cx.globalCompositeOperation = 'lighter';
+  for (const n of N) if (n.e > 0.05) {
+    const c = REG[n.r].col, a = n.e;
+    cx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.26 * a})`; cx.beginPath(); cx.arc(n.px, n.py, 7 * a + 2, 0, 6.283); cx.fill();
+    cx.fillStyle = `rgba(${Math.min(255, c[0] + 90)},${Math.min(255, c[1] + 90)},${Math.min(255, c[2] + 90)},${0.95 * a})`; cx.fillRect(n.px - 1.6, n.py - 1.6, 3.2, 3.2);
+  }
+  // decision pulses: eye -> vision -> compass -> descending -> motor
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i], f = Math.max(0, (now - p.t0) / p.dur); if (f > 1.25) { pulses.splice(i, 1); continue; }
+    const segs = p.pts.length - 1, pos = Math.min(segs, f * segs), k = Math.floor(pos), u = pos - k;
+    cx.strokeStyle = 'rgba(160,220,255,0.25)'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(...p.pts[0]);
+    for (let j = 1; j <= Math.min(segs, k + 1); j++) {
+      const [x0, y0] = p.pts[j - 1], [x1, y1] = p.pts[j], t = j === k + 1 ? u : 1;
+      cx.lineTo(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t);
+    }
+    cx.stroke();
+    if (f <= 1) { const [x0, y0] = p.pts[Math.min(k, segs)], [x1, y1] = p.pts[Math.min(k + 1, segs)];
+      const x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u;
+      const gg = cx.createRadialGradient(x, y, 0, x, y, 16); gg.addColorStop(0, 'rgba(220,245,255,0.9)'); gg.addColorStop(1, 'rgba(120,200,255,0)');
+      cx.fillStyle = gg; cx.beginPath(); cx.arc(x, y, 16, 0, 6.283); cx.fill(); }
+  }
+  // dopamine waves
+  for (let i = waves.length - 1; i >= 0; i--) {
+    const w = waves[i], f = Math.max(0, (now - w.t0) / w.dur); if (f > 1) { waves.splice(i, 1); continue; }
+    const col = w.kind === 'reward' ? '72,220,140' : '255,84,92';
+    for (const s of [-1, 1]) { const [x, y] = sideCentroid('memory', s);
+      cx.strokeStyle = `rgba(${col},${0.7 * (1 - f)})`; cx.lineWidth = 3; cx.beginPath(); cx.arc(x, y, 10 + f * 150, 0, 6.283); cx.stroke(); }
+  }
+  cx.globalCompositeOperation = 'source-over';
+
+  // labels with leader lines, outside the brain
+  cx.font = '600 19px "Segoe UI", system-ui'; cx.textBaseline = 'middle';
+  for (const [r, lx, ly] of LABELS) {
+    const c = REG[r].col, lvl = R[r] != null ? Math.min(1, R[r] / peak(r)) : 0;
+    cx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; cx.textAlign = 'left';
+    cx.fillText(REG[r].name, lx, ly - 10);
+    cx.fillStyle = '#6d7290'; cx.font = '14px "Segoe UI", system-ui';
+    cx.fillText(REG[r].sub, lx, ly + 11);
+    cx.fillStyle = 'rgba(255,255,255,0.07)'; cx.fillRect(lx, ly + 24, 110, 4);
+    cx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; cx.fillRect(lx, ly + 24, 110 * lvl, 4);
+    cx.font = '600 19px "Segoe UI", system-ui';
+  }
+
+  cx.textAlign = 'left'; cx.font = '13px "Segoe UI", system-ui';
+  cx.fillStyle = 'rgb(95,100,140)'; cx.fillRect(18, 652, 9, 9);
+  cx.fillStyle = '#7a7f9e'; cx.fillText('rest of the central brain', 33, 657);
+  // header (top-right corner stays free for the tipper line)
+  cx.textAlign = 'left'; cx.fillStyle = '#e9ecf5'; cx.font = '700 28px "Segoe UI", system-ui';
+  cx.fillText('FLY BRAIN', 18, 30);
+  cx.fillStyle = '#8b90a6'; cx.font = '16px "Segoe UI", system-ui';
+  cx.fillText('139,255 neurons · live', 176, 29);
+  cx.fillStyle = '#4c5068'; cx.font = '15px "Segoe UI", system-ui';
+  cx.fillText(REAL ? 'real positions: each neuron at the centre of its synapses (FlyWire v783)' + (spkSeen ? ' · every flash is a real spike' : '')
+                    : 'schematic layout · glow = live firing rate of each region', 18, 56);
+
+  if (FOOTER) {
+  // footer: thought + chosen key
+  cx.fillStyle = 'rgba(255,255,255,0.05)'; cx.fillRect(0, H - 76, W, 76);
+  cx.fillStyle = '#e9ecf5'; cx.font = '600 23px "Segoe UI", system-ui'; cx.textAlign = 'left';
+  cx.fillText(L && L.thinking ? '“' + L.thinking + '”' : '…', 18, H - 48);
+  cx.fillStyle = '#8b90a6'; cx.font = '16px "Segoe UI", system-ui';
+  const by = L && L.by ? (L.by === 'fly' ? 'the fly decided' : L.by === 'chat' ? 'chat is steering' : 'driver steering') : '';
+  cx.fillText(by, 18, H - 20);
+  const key = L && L.keys && L.keys !== 'none' && L.keys !== '-' ? L.keys : null;
+  if (key) {
+    const ax = W - 56, ay = H - 38, ang = {up: -Math.PI / 2, down: Math.PI / 2, left: Math.PI, right: 0}[key];
+    cx.save(); cx.translate(ax, ay);
+    if (ang != null) { cx.rotate(ang); cx.fillStyle = '#9fe3ff'; cx.beginPath(); cx.moveTo(20, 0); cx.lineTo(-8, -14); cx.lineTo(-2, 0); cx.lineTo(-8, 14); cx.closePath(); cx.fill(); }
+    else { cx.fillStyle = key === 'a' ? '#43b581' : '#ec4a4f'; cx.beginPath(); cx.arc(0, 0, 16, 0, 6.283); cx.fill();
+      cx.fillStyle = '#fff'; cx.font = '700 20px "Segoe UI"'; cx.textAlign = 'center'; cx.fillText(key.toUpperCase(), 0, 1); }
+    cx.restore();
+  }
+  }
+}
+// ---------- real FlyWire layout (replaces the schematic when the Pi provides it) ----------
+const GROUP = {optic: 'eyes', 'visual projection': 'vision', visual_projection: 'vision', sensory: 'senses',
+  central: 'central', cx: 'navigation', kc: 'memory', mbon: 'memory out', pam: 'reward', ppl1: 'punishment',
+  descending: 'descending', motor: 'motor', other: 'central'};
+// FlyWire's "sensory" class mixes photoreceptors (eyes), olfactory receptors (smell) and
+// mechano/auditory/taste neurons: split them by cell type so the colours mean what they say.
+function sensoryKind(n, r) {
+  if (r !== 'senses') return r;
+  const t = String(n.cell_type || '');
+  if (/^R\d|^R1-6|^ocellar/.test(t)) return 'eyes';
+  if (/^ORN/.test(t)) return 'senses';
+  return 'touch';
+}
+async function loadLayout() {
+  try {
+    const d = await (await fetch('/api/brain_layout', {cache: 'no-store'})).json();
+    const L0 = ((d && d.neurons) || []).filter(n => n.x != null && n.y != null);
+    if (L0.length < 500) return false;
+    const ax = d.axes || {};                              // which coordinate is horizontal / vertical in a frontal view
+    const hx = ax.horizontal || 'x', vy = ax.vertical || 'y', flipY = !!ax.flip_vertical, flipX = !!ax.flip_horizontal;
+    const xs = L0.map(n => n[hx]).sort((a, b) => a - b), ys = L0.map(n => n[vy]).sort((a, b) => a - b);
+    const q = (a, f) => a[Math.floor(f * (a.length - 1))];
+    const x0 = xs[0], x1 = xs[xs.length - 1], y0 = q(ys, .002), y1 = q(ys, .998);
+    const mx = (x0 + x1) / 2;
+    // fit inside the space between the label columns (x 168..600) and under the header (y 80..650)
+    const sc = Math.min(724 / (x1 - x0), 400 / (y1 - y0));
+    N.length = 0;
+    for (const n of L0) {
+      const r = GROUP[String(n.group).toLowerCase()] || 'central';
+      const X = (flipX ? -1 : 1) * (n[hx] - mx), Y = (flipY ? 1 : -1) * (n[vy] - (y0 + y1) / 2);
+      N.push({r: sensoryKind(n, r), i: n.i, px: OX + X * sc, py: 340 + Y * sc, side: X < 0 ? -1 : 1, e: 0});
+    }
+    REAL = true;
+    buildAreas();
+    return true;
+  } catch (e) { return false; }
+}
+// spikes: base64 bitset over the sample indices, spikes since the previous poll
+let spkSeen = false;
+function applySpikes(b64) {
+  if (!b64) return;
+  const bin = atob(b64); spkSeen = true;
+  for (const n of N) { if (n.i == null) continue; const byte = bin.charCodeAt(n.i >> 3);
+    if (byte & (1 << (n.i & 7))) n.e = 1; }
+}
+loadLayout().finally(() => { poll(); requestAnimationFrame(frame); });
+setInterval(() => { if (!REAL) loadLayout(); }, 60000);
+</script>
+</body>
+</html>

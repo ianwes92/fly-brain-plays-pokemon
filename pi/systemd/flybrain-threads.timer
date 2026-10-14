@@ -1,0 +1,10 @@
+[Unit]
+Description=flybrain Threads post at 18:00 New York time
+
+[Timer]
+OnCalendar=*-*-* 18:00:00 America/New_York
+# a post missed while the Pi was off is skipped, not posted late
+Persistent=false
+
+[Install]
+WantedBy=timers.target

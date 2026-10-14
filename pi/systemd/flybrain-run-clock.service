@@ -1,0 +1,6 @@
+[Unit]
+Description=flybrain run clock: 30-day lab runs (warn the day before, reset at 13:00 ET)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/flybrain/play/run_clock.py tick

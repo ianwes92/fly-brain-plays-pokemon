@@ -1,0 +1,13 @@
+{
+  "pi_host": "192.168.1.50",
+  "panel_port": 8777,
+  "twitch_channel": "yourchannel",
+  "twitch_broadcaster_id": "123456789",
+  "youtube_channel_id": "UCxxxxxxxxxxxxxxxxxxxxxx",
+  "youtube_handle": "@yourchannel",
+  "instagram": "",
+  "obs_collection": "Flybrain",
+  "obs_scene": "Fly Brain v2",
+  "maintenance": [["07:40", 120], ["19:40", 120]],
+  "clips_dir": "C:\\Users\\you\\Videos"
+}
