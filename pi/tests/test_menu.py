@@ -35,7 +35,7 @@ line = ("@badge-info=;badges=broadcaster/1;display-name=ExampleChannel;user-id=1
         ":examplechannel!examplechannel@examplechannel.tmi.twitch.tv PRIVMSG #examplechannel :!menu")
 m = tw.parse(line)
 check("the user id is parsed from the tags", m["uid"] == IAN)
-check("!menu is an admin request", tw.interpret(m) == ("admin", True, "examplechannel", "LeetZerzz", IAN))
+check("!menu is an admin request", tw.interpret(m) == ("admin", True, "examplechannel", "ExampleChannel", IAN))
 check("!menu off releases", tw.interpret(msg("!menu off"))[1] is False)
 check("!menu done releases too", tw.interpret(msg("!menu done"))[1] is False)
 
