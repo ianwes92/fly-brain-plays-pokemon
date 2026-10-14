@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----------------------------------------------------------------------------
-Third-party data and content are NOT covered by this license:
-
-* FlyWire connectome data (FAFB v783) is licensed CC-BY 4.0 by the FlyWire
-  Consortium. It is not included in this repository; see docs/DATA_AND_LICENSES.md
-  for how to download it and how to cite it.
-* Pokémon FireRed is copyrighted by Nintendo / Game Freak / The Pokémon Company.
-  No ROM, save file or game asset is included or distributed. You must supply
-  your own legally obtained copy.
